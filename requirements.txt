@@ -1,0 +1,4 @@
+aiohttp
+aiofiles
+Click>8
+cryptography
