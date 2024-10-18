@@ -7,6 +7,10 @@ from importlib.metadata import version
 
 from accqsure.auth import Auth
 from accqsure.text import Text
+from accqsure.document_types import DocumentTypes
+from accqsure.documents import Documents
+from accqsure.manifests import Manifests
+
 from accqsure.exceptions import ApiError, AccQsureException
 
 
@@ -29,6 +33,9 @@ class AccQsure(object):
             credentials_file=credentials_file,
         )
         self.text = Text(self)
+        self.document_types = DocumentTypes(self)
+        self.documents = Documents(self)
+        self.manifests = Manifests(self)
 
     async def _query(self, path, method, params=None, data=None, headers=None):
         try:

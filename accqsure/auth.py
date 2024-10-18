@@ -142,7 +142,7 @@ def is_token_valid(token: Token):
         logging.debug(f"Token absent")
         return False
     logging.debug(f"Token expires: {token.expires_at}")
-    return (token.expires_at - 60) < time.time()
+    return (token.expires_at - 60) > time.time()
 
 
 class Auth(object):

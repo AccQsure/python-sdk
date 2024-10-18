@@ -115,3 +115,6 @@ def cli(config, debug, output_file, silent, verbosity):
 
 
 from accqsure.cli.text import text
+from accqsure.cli.document import document
+from accqsure.cli.document_type import document_type
+from accqsure.cli.manifest import manifest
