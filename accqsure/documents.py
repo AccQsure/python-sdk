@@ -2,6 +2,7 @@ import json
 import logging
 
 from accqsure.exceptions import SpecificationError
+from accqsure.manifests import Manifest
 
 
 class Documents(object):
@@ -132,3 +133,11 @@ class Document:
         )
         self.__init__(self.accqsure, **resp)
         return self
+
+    async def list_manifests(self):
+        resp = await self.accqsure._query(
+            f"/document/{self.id}/manifest",
+            "GET",
+        )
+        manifests = [Manifest(self.accqsure, **manifest) for manifest in resp]
+        return manifests

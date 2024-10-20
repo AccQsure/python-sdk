@@ -73,6 +73,10 @@ class Manifest:
     def reference_document_id(self) -> str:
         return self._reference_document.get("entity_id")
 
+    @property
+    def reference_document_doc_id(self) -> str:
+        return self._reference_document.get("doc_id")
+
     def __str__(self):
         return json.dumps({k: v for k, v in self._entity.items()})
 
@@ -119,6 +123,23 @@ class Manifest:
         resp = await self.accqsure._query(f"/manifest/{self.id}/check", "GET", kwargs)
         checks = [ManifestCheck(self.accqsure, self, **check) for check in resp]
         return checks
+
+    async def create_check(self, name, section, prompt, **kwargs):
+        data = dict(
+            name=name,
+            section=section,
+            prompt=prompt,
+            **kwargs,
+        )
+        payload = {k: v for k, v in data.items() if v is not None}
+        logging.info(f"Creating Manifest Check {name}")
+        resp = await self.accqsure._query(
+            f"/manifest/{self.id}/check", "POST", None, payload
+        )
+        check = ManifestCheck(self.accqsure, self, **resp)
+        logging.info(f"Created Manifest Check {name} with id {check.id}")
+
+        return check
 
     async def remove_check(self, check_id, **kwargs):
         await self.accqsure._query(
