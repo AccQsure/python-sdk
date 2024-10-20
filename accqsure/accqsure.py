@@ -37,6 +37,10 @@ class AccQsure(object):
         self.documents = Documents(self)
         self.manifests = Manifests(self)
 
+    @property
+    def __version__(self) -> str:
+        return self._version
+
     async def _query(self, path, method, params=None, data=None, headers=None):
         try:
             token = await self.auth.get_token()
