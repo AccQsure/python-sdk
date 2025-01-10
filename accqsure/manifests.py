@@ -16,8 +16,10 @@ class Manifests(object):
         resp = await self.accqsure._query(f"/manifest/global", "GET", kwargs)
         return Manifest(self.accqsure, **resp)
 
-    async def list(self, **kwargs):
-        resp = await self.accqsure._query(f"/manifest", "GET", kwargs)
+    async def list(self, document_type_id, **kwargs):
+        resp = await self.accqsure._query(
+            f"/manifest", "GET", dict(document_type_id=document_type_id, **kwargs)
+        )
         manifests = [Manifest(self.accqsure, **manifest) for manifest in resp]
         return manifests
 

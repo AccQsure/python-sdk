@@ -42,6 +42,15 @@ class Documents(object):
 
         return document
 
+    async def markdown_convert(self, title, type, base64_contents, **kwargs):
+        resp = await self.accqsure._query(
+            f"/text/vectorize",
+            "POST",
+            None,
+            {**kwargs, **dict(title=title, type=type, base64_contents=base64_contents)},
+        )
+        return resp
+
     async def remove(self, id, **kwargs):
         await self.accqsure._query(f"/document/{id}", "DELETE", dict(**kwargs))
 
