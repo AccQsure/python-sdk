@@ -44,7 +44,7 @@ class Documents(object):
 
     async def markdown_convert(self, title, type, base64_contents, **kwargs):
         resp = await self.accqsure._query(
-            f"/text/vectorize",
+            f"/document/convert",
             "POST",
             None,
             {**kwargs, **dict(title=title, type=type, base64_contents=base64_contents)},
