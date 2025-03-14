@@ -46,7 +46,23 @@ class SpecificationError(AccQsureException):
         return self._attribute
 
     def __repr__(self):
-        return "SpecificationError({self.attribute}, {self.message})".format(self=self)
+        return "SpecificationError({self.attribute}, {self.message})".format(
+            self=self
+        )
 
     def __str__(self):
-        return "SpecificationError({self.attribute}, {self.message})".format(self=self)
+        return "SpecificationError({self.attribute}, {self.message})".format(
+            self=self
+        )
+
+
+class TaskError(AccQsureException):
+    def __init__(self, message, *args):
+        super().__init__(message, *args)
+        self._message = message
+
+    def __repr__(self):
+        return "TaskError({self.attribute}, {self.message})".format(self=self)
+
+    def __str__(self):
+        return "TaskError({self.attribute}, {self.message})".format(self=self)

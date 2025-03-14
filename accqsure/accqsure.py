@@ -3,6 +3,8 @@ import os
 import aiohttp
 import logging
 import traceback
+import math
+import asyncio
 from importlib.metadata import version
 
 from accqsure.auth import Auth
@@ -11,7 +13,12 @@ from accqsure.document_types import DocumentTypes
 from accqsure.documents import Documents
 from accqsure.manifests import Manifests
 
-from accqsure.exceptions import ApiError, AccQsureException
+from accqsure.exceptions import (
+    ApiError,
+    AccQsureException,
+    SpecificationError,
+    TaskError,
+)
 
 
 DEFAULT_CONFIG_DIR = "~/.accqsure"
@@ -24,7 +31,9 @@ class AccQsure(object):
         config_dir = kwargs.get("config_dir") or os.path.expanduser(
             os.environ.get("ACCQSURE_CONFIG_DIR") or DEFAULT_CONFIG_DIR
         )
-        credentials_file = kwargs.get("credentials_file") or os.path.expanduser(
+        credentials_file = kwargs.get(
+            "credentials_file"
+        ) or os.path.expanduser(
             os.environ.get("ACCQSURE_CREDENTIALS_FILE")
             or f"{config_dir}/{DEFAULT_CREDENTIAL_FILE_NAME}"
         )
@@ -70,7 +79,9 @@ class AccQsure(object):
         )
         if params:
             if not isinstance(params, dict):
-                raise AccQsureException("Query parameters must be a valid dictionary")
+                raise AccQsureException(
+                    "Query parameters must be a valid dictionary"
+                )
             params = {
                 k: (str(v).lower() if isinstance(v, bool) else v)
                 for k, v in params.items()
@@ -96,13 +107,19 @@ class AccQsure(object):
                     content_type = resp.headers.get("content-type", "")
                     resp.close()
                     if content_type == "application/json":
-                        raise ApiError(resp.status, json.loads(what.decode("utf8")))
+                        raise ApiError(
+                            resp.status, json.loads(what.decode("utf8"))
+                        )
                     else:
-                        raise ApiError(resp.status, {"message": what.decode("utf8")})
+                        raise ApiError(
+                            resp.status, {"message": what.decode("utf8")}
+                        )
                 results = await resp.json()
                 return results
 
-    async def _query_stream(self, path, method, params=None, data=None, headers=None):
+    async def _query_stream(
+        self, path, method, params=None, data=None, headers=None
+    ):
         try:
             token = await self.auth.get_token()
         except AccQsureException as e:
@@ -131,7 +148,9 @@ class AccQsure(object):
         )
         if params:
             if not isinstance(params, dict):
-                raise AccQsureException("Query parameters must be a valid dictionary")
+                raise AccQsureException(
+                    "Query parameters must be a valid dictionary"
+                )
             params = {
                 k: (str(v).lower() if isinstance(v, bool) else v)
                 for k, v in params.items()
@@ -158,14 +177,20 @@ class AccQsure(object):
                     content_type = resp.headers.get("content-type", "")
                     resp.close()
                     if content_type == "application/json":
-                        raise ApiError(resp.status, json.loads(what.decode("utf8")))
+                        raise ApiError(
+                            resp.status, json.loads(what.decode("utf8"))
+                        )
                     else:
-                        raise ApiError(resp.status, {"message": what.decode("utf8")})
+                        raise ApiError(
+                            resp.status, {"message": what.decode("utf8")}
+                        )
                 try:
                     async for line in resp.content:
                         if line and line.strip():
                             clean_line = (
-                                line.decode("utf-8").removeprefix("data:").strip()
+                                line.decode("utf-8")
+                                .removeprefix("data:")
+                                .strip()
                             )
                             logging.debug(clean_line)
                             if clean_line == "[DONE]":
@@ -179,7 +204,9 @@ class AccQsure(object):
                             if response.get("generated_text"):
                                 logging.debug("final response", response)
                                 return response.get("generated_text")
-                            elif response.get("choices")[0].get("finish_reason"):
+                            elif response.get("choices")[0].get(
+                                "finish_reason"
+                            ):
                                 continue
                             else:
                                 content = (
@@ -194,3 +221,36 @@ class AccQsure(object):
                     data = await response.text()
                     logging.error(f"Response error: {data}")
                     raise e
+
+    async def _poll_task(self, task_id, timeout=300):
+        MAX_TIMEOUT = 24 * 60 * 60
+        if timeout > MAX_TIMEOUT:
+            raise SpecificationError(
+                "timeout",
+                f"timeout must be less than {MAX_TIMEOUT} seconds.",
+            )
+
+        POLL_INTERVAL_MIN = 5
+        POLL_INTERVAL_MAX = 60
+        POLL_INTERVAL = max(
+            min(timeout / 60, POLL_INTERVAL_MAX), POLL_INTERVAL_MIN
+        )
+        retry_count = math.ceil(timeout / POLL_INTERVAL)
+        count = 0
+        while count < retry_count:
+            await asyncio.sleep(POLL_INTERVAL)
+
+            resp = await self._query(
+                f"/task/{task_id}",
+                "GET",
+            )
+
+            status = resp.get("status")
+            if status == "finished":
+                return resp.get("result")
+            if status in ["failed", "canceled"]:
+                raise TaskError(resp.get("result"))
+
+            count += 1
+
+        raise AccQsureException(f"Timeout waiting for task {task_id}")

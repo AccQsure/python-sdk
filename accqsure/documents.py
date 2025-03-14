@@ -15,7 +15,9 @@ class Documents(object):
 
     async def list(self, document_type_id, **kwargs):
         resp = await self.accqsure._query(
-            f"/document", "GET", dict(document_type_id=document_type_id, **kwargs)
+            f"/document",
+            "GET",
+            dict(document_type_id=document_type_id, **kwargs),
         )
         documents = [Document(self.accqsure, **document) for document in resp]
         return documents
@@ -47,9 +49,15 @@ class Documents(object):
             f"/document/convert",
             "POST",
             None,
-            {**kwargs, **dict(title=title, type=type, base64_contents=base64_contents)},
+            {
+                **kwargs,
+                **dict(
+                    title=title, type=type, base64_contents=base64_contents
+                ),
+            },
         )
-        return resp
+        result = await self.accqsure._poll_task(resp.get("task_id"))
+        return result.get("contents")
 
     async def remove(self, id, **kwargs):
         await self.accqsure._query(f"/document/{id}", "DELETE", dict(**kwargs))
@@ -116,7 +124,9 @@ class Document:
 
     async def get_contents(self):
         if not self._content_id:
-            raise SpecificationError("content_id", "Content not uploaded for document")
+            raise SpecificationError(
+                "content_id", "Content not uploaded for document"
+            )
         resp = await self.accqsure._query(
             f"/document/{self.id}/asset/{self._content_id}",
             "GET",
