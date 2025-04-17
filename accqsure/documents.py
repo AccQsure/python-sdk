@@ -27,6 +27,7 @@ class Documents(object):
         document_type_id,
         name,
         doc_id,
+        contents,
         **kwargs,
     ):
 
@@ -34,6 +35,7 @@ class Documents(object):
             name=name,
             document_type_id=document_type_id,
             doc_id=doc_id,
+            contents=contents,
             **kwargs,
         )
         payload = {k: v for k, v in data.items() if v is not None}
