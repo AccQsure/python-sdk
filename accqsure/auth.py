@@ -68,9 +68,7 @@ async def sign_jwt(alg, kid, aud, iss, sub, exp, payload, private_key_pem):
     else:
         raise ValueError("Unsupported algorithm")
 
-    signed_token = (
-        f"{partial_token}.{base64_to_base64_url(base64.b64encode(signature).decode())}"
-    )
+    signed_token = f"{partial_token}.{base64_to_base64_url(base64.b64encode(signature).decode())}"
     return signed_token
 
 
@@ -150,7 +148,7 @@ class Auth(object):
         self.token_file_path = f"{config_dir}/token.json"
         self.credentials_file = credentials_file
         self.token = None
-        self.key = None
+        self.key = kwargs.get("key", None)
 
     async def get_new_token(self):
         if not self.key:

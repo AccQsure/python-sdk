@@ -40,6 +40,7 @@ class AccQsure(object):
         self.auth = Auth(
             config_dir=config_dir,
             credentials_file=credentials_file,
+            key=kwargs.get("key", None),
         )
         self.text = Text(self)
         self.document_types = DocumentTypes(self)
