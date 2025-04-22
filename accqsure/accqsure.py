@@ -117,8 +117,11 @@ class AccQsure(object):
                         raise ApiError(
                             resp.status, {"message": what.decode("utf8")}
                         )
-                results = await resp.json()
-                return results
+                content_type = resp.headers.get("Content-Type", "").lower()
+                if "application/json" in content_type:
+                    return await resp.json()
+                else:
+                    return await resp.read()
 
     async def _query_stream(
         self, path, method, params=None, data=None, headers=None

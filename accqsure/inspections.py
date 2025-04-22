@@ -126,8 +126,7 @@ class Inspection:
             raise SpecificationError(
                 "content_id", "Content not uploaded for inspection"
             )
-        resp = await self.accqsure._query(
+        return await self.accqsure._query(
             f"/inspection/{self.id}/asset/{self._content_id}/{name}",
             "GET",
         )
-        return resp

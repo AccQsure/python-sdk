@@ -140,11 +140,10 @@ class Document:
             raise SpecificationError(
                 "content_id", "Content not uploaded for document"
             )
-        resp = await self.accqsure._query(
+        return await self.accqsure._query(
             f"/document/{self.id}/asset/{self._content_id}/{name}",
             "GET",
         )
-        return resp
 
     async def list_manifests(self):
         resp = await self.accqsure._query(
