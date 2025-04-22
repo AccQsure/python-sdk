@@ -46,20 +46,20 @@ class Documents(object):
 
         return document
 
-    async def markdown_convert(self, title, type, base64_contents, **kwargs):
-        resp = await self.accqsure._query(
-            f"/document/convert",
-            "POST",
-            None,
-            {
-                **kwargs,
-                **dict(
-                    title=title, type=type, base64_contents=base64_contents
-                ),
-            },
-        )
-        result = await self.accqsure._poll_task(resp.get("task_id"))
-        return result.get("contents")
+    # async def markdown_convert(self, title, type, base64_contents, **kwargs):
+    #     resp = await self.accqsure._query(
+    #         f"/document/convert",
+    #         "POST",
+    #         None,
+    #         {
+    #             **kwargs,
+    #             **dict(
+    #                 title=title, type=type, base64_contents=base64_contents
+    #             ),
+    #         },
+    #     )
+    #     result = await self.accqsure._poll_task(resp.get("task_id"))
+    #     return result.get("contents")
 
     async def remove(self, id, **kwargs):
         await self.accqsure._query(f"/document/{id}", "DELETE", dict(**kwargs))
@@ -130,30 +130,21 @@ class Document:
                 "content_id", "Content not uploaded for document"
             )
         resp = await self.accqsure._query(
-            f"/document/{self.id}/asset/{self._content_id}",
+            f"/document/{self.id}/asset/{self._content_id}/manifest.json",
             "GET",
         )
         return resp
 
-    async def set_contents(self, file_name, contents):
+    async def get_content_item(self, name):
+        if not self._content_id:
+            raise SpecificationError(
+                "content_id", "Content not uploaded for document"
+            )
         resp = await self.accqsure._query(
-            f"/document/{self.id}/asset/",
-            "POST",
-            dict(file_name=file_name),
-            contents,
-            {
-                "Content-Type": "text/plain",
-            },
+            f"/document/{self.id}/asset/{self._content_id}/{name}",
+            "GET",
         )
-        asset_id = resp.get("asset_id")
-        resp = await self.accqsure._query(
-            f"/document/{self._id}",
-            "PUT",
-            None,
-            dict(content_id=asset_id),
-        )
-        self.__init__(self.accqsure, **resp)
-        return self
+        return resp
 
     async def list_manifests(self):
         resp = await self.accqsure._query(

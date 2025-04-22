@@ -12,6 +12,7 @@ from accqsure.text import Text
 from accqsure.document_types import DocumentTypes
 from accqsure.documents import Documents
 from accqsure.manifests import Manifests
+from accqsure.inspections import Inspections
 
 from accqsure.exceptions import (
     ApiError,
@@ -46,6 +47,7 @@ class AccQsure(object):
         self.document_types = DocumentTypes(self)
         self.documents = Documents(self)
         self.manifests = Manifests(self)
+        self.inspections = Inspections(self)
 
     @property
     def __version__(self) -> str:

@@ -46,7 +46,9 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 
 
 @click.group()
-@click.version_option(package_name="accqsure", prog_name="AccQsure CLI and SDK")
+@click.version_option(
+    package_name="accqsure", prog_name="AccQsure CLI and SDK"
+)
 @click.option(
     "--debug",
     "-d",
@@ -118,3 +120,4 @@ from accqsure.cli.text import text
 from accqsure.cli.document import document
 from accqsure.cli.document_type import document_type
 from accqsure.cli.manifest import manifest
+from accqsure.cli.inspection import inspection
