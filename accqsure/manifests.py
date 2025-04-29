@@ -115,25 +115,27 @@ class Manifest:
         return self
 
     async def get_reference_contents(self):
+        document_id = self._reference_document.get("entity_id")
         content_id = self._reference_document.get("content_id")
         if not content_id:
             raise SpecificationError(
                 "content_id", "Content not uploaded for document"
             )
         resp = await self.accqsure._query(
-            f"/document/{self.id}/asset/{content_id}/manifest.json",
+            f"/document/{document_id}/asset/{content_id}/manifest.json",
             "GET",
         )
         return resp
 
     async def get_reference_content_item(self, name):
+        document_id = self._reference_document.get("entity_id")
         content_id = self._reference_document.get("content_id")
         if not content_id:
             raise SpecificationError(
                 "content_id", "Content not uploaded for document"
             )
         resp = await self.accqsure._query(
-            f"/document/{self.id}/asset/{content_id}/{name}",
+            f"/document/{document_id}/asset/{content_id}/{name}",
             "GET",
         )
         return resp
@@ -228,16 +230,3 @@ class ManifestCheck:
         )
         self.__init__(self.accqsure, self._manifest, **resp)
         return self
-
-    async def run(self, doc_content):
-        reference_doc_content = await self._manifest.get_reference_contents()
-        resp = await self.accqsure._query_stream(
-            f"/manifest/{self._manifest.id}/check/{self.id}/run",
-            "POST",
-            None,
-            dict(
-                doc_content=doc_content,
-                reference_doc_content=reference_doc_content,
-            ),
-        )
-        return resp
