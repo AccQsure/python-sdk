@@ -18,7 +18,9 @@ class Manifests(object):
 
     async def list(self, document_type_id, **kwargs):
         resp = await self.accqsure._query(
-            f"/manifest", "GET", dict(document_type_id=document_type_id, **kwargs)
+            f"/manifest",
+            "GET",
+            dict(document_type_id=document_type_id, **kwargs),
         )
         manifests = [Manifest(self.accqsure, **manifest) for manifest in resp]
         return manifests
@@ -113,17 +115,36 @@ class Manifest:
         return self
 
     async def get_reference_contents(self):
-        if not self._content_id:
-            raise SpecificationError("content_id", "Content not uploaded for document")
+        content_id = self._reference_document.get("content_id")
+        if not content_id:
+            raise SpecificationError(
+                "content_id", "Content not uploaded for document"
+            )
         resp = await self.accqsure._query(
-            f"/document/{self.id}/asset/{self._content_id}",
+            f"/document/{self.id}/asset/{content_id}/manifest.json",
+            "GET",
+        )
+        return resp
+
+    async def get_reference_content_item(self, name):
+        content_id = self._reference_document.get("content_id")
+        if not content_id:
+            raise SpecificationError(
+                "content_id", "Content not uploaded for document"
+            )
+        resp = await self.accqsure._query(
+            f"/document/{self.id}/asset/{content_id}/{name}",
             "GET",
         )
         return resp
 
     async def list_checks(self, **kwargs):
-        resp = await self.accqsure._query(f"/manifest/{self.id}/check", "GET", kwargs)
-        checks = [ManifestCheck(self.accqsure, self, **check) for check in resp]
+        resp = await self.accqsure._query(
+            f"/manifest/{self.id}/check", "GET", kwargs
+        )
+        checks = [
+            ManifestCheck(self.accqsure, self, **check) for check in resp
+        ]
         return checks
 
     async def create_check(self, name, section, prompt, **kwargs):
@@ -214,6 +235,9 @@ class ManifestCheck:
             f"/manifest/{self._manifest.id}/check/{self.id}/run",
             "POST",
             None,
-            dict(doc_content=doc_content, reference_doc_content=reference_doc_content),
+            dict(
+                doc_content=doc_content,
+                reference_doc_content=reference_doc_content,
+            ),
         )
         return resp

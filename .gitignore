@@ -18,3 +18,7 @@ config-*
 **/__pycache__/
 sync.sh
 .pypirc
+*.key
+*.jwk
+*.pem
+tmp.py
