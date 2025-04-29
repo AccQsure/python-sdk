@@ -120,6 +120,8 @@ class AccQsure(object):
                 content_type = resp.headers.get("Content-Type", "").lower()
                 if "application/json" in content_type:
                     return await resp.json()
+                elif "text" in content_type:
+                    return await resp.text()
                 else:
                     return await resp.read()
 
