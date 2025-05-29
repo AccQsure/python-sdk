@@ -58,12 +58,17 @@ class AccQsure(object):
             token = await self.auth.get_token()
         except AccQsureException as e:
             raise e
-        except Exception:
+        except Exception as e:
             raise AccQsureException(
                 f"Error getting authorization tokens.  Verify configured credentials. Error: {traceback.format_exc()}"
-            )
+            ) from e
         logging.debug(
-            f"Call parameters - Path: {path}, Method: {method}, Params: {params}, Body: {data}, Headers: {headers}"
+            "Call parameters - Path: %s, Method: %s, Params: %s, Body: %s, Headers: %s",
+            path,
+            method,
+            params,
+            data,
+            headers,
         )
         api_endpoint = token.api_endpoint
         headers = (
@@ -95,13 +100,22 @@ class AccQsure(object):
         url = f"{api_endpoint}/v1{path}"
 
         logging.debug(
-            f"Request - Url: {url}, Method: {method}, Params: {params}, Body: {data}, Headers: {headers}"
+            "Request - Url: %s, Method: %s, Params: %s, Body: %s, Headers: %s",
+            url,
+            method,
+            params,
+            data,
+            headers,
         )
         async with aiohttp.ClientSession() as session:
             async with session.request(
                 method,
                 url,
-                data=json.dumps(data),
+                data=(
+                    json.dumps(data)
+                    if headers["Content-Type"] == "application/json"
+                    else data
+                ),
                 headers=headers,
                 params=params,
             ) as resp:
@@ -132,12 +146,17 @@ class AccQsure(object):
             token = await self.auth.get_token()
         except AccQsureException as e:
             raise e
-        except Exception:
+        except Exception as e:
             raise AccQsureException(
                 f"Error getting authorization tokens.  Verify configured credentials. Error: {traceback.format_exc()}"
-            )
+            ) from e
         logging.debug(
-            f"Call parameters - Path: {path}, Method: {method}, Params: {params}, Body: {data}, Headers: {headers}"
+            "Call parameters - Path: %s, Method: %s, Params: %s, Body: %s, Headers: %s",
+            path,
+            method,
+            params,
+            data,
+            headers,
         )
         api_endpoint = token.api_endpoint
         headers = (
@@ -169,7 +188,12 @@ class AccQsure(object):
         url = f"{api_endpoint}/v1{path}"
 
         logging.debug(
-            f"Request - Url: {url}, Method: {method}, Params: {params}, Body: {data}, Headers: {headers}"
+            "Request - Url: %s, Method: %s, Params: %s, Body: %s, Headers: %s",
+            url,
+            method,
+            params,
+            data,
+            headers,
         )
         answer = ""
         async with aiohttp.ClientSession() as session:
@@ -205,12 +229,12 @@ class AccQsure(object):
                                 continue
                             try:
                                 response = json.loads(clean_line)
-                            except:
-                                logging.error("bad line", clean_line)
+                            except Exception:
+                                logging.error("bad line: %s", clean_line)
                                 continue
 
                             if response.get("generated_text"):
-                                logging.debug("final response", response)
+                                logging.debug("final response: %s", response)
                                 return response.get("generated_text")
                             elif response.get("choices")[0].get(
                                 "finish_reason"
@@ -225,9 +249,9 @@ class AccQsure(object):
                                 answer += content
                     return answer
                 except Exception as e:
-                    logging.exception(f"Error during generation response")
+                    logging.exception("Error during generation response")
                     data = await response.text()
-                    logging.error(f"Response error: {data}")
+                    logging.error("Response error: %s", data)
                     raise e
 
     async def _poll_task(self, task_id, timeout=300):

@@ -6,17 +6,20 @@ from accqsure.exceptions import SpecificationError
 
 class Inspections(object):
     def __init__(self, accqsure):
+
         self.accqsure = accqsure
 
-    async def get(self, id, **kwargs):
-        resp = await self.accqsure._query(f"/inspection/{id}", "GET", kwargs)
+    async def get(self, id_, **kwargs):
+        # pylint: disable=protected-access
+        resp = await self.accqsure._query(f"/inspection/{id_}", "GET", kwargs)
         return Inspection(self.accqsure, **resp)
 
-    async def list(self, type, **kwargs):
+    async def list(self, type_, **kwargs):
+        # pylint: disable=protected-access
         resp = await self.accqsure._query(
-            f"/inspection",
+            "/inspection",
             "GET",
-            dict(type=type, **kwargs),
+            {"type": type_, **kwargs},
         )
         inspections = [
             Inspection(self.accqsure, **inspection) for inspection in resp
@@ -25,7 +28,7 @@ class Inspections(object):
 
     async def create(
         self,
-        type,
+        type_,
         name,
         document_type_id,
         manifests,
@@ -36,24 +39,24 @@ class Inspections(object):
 
         data = dict(
             name=name,
-            type=type,
+            type=type_,
             document_type_id=document_type_id,
             manifests=manifests,
             draft=draft,
             documents=documents**kwargs,
         )
         payload = {k: v for k, v in data.items() if v is not None}
-        logging.info(f"Creating Inspection {name}")
+        logging.info("Creating Inspection %s", name)
+        # pylint: disable=protected-access
         resp = await self.accqsure._query("/inspection", "POST", None, payload)
         inspection = Inspection(self.accqsure, **resp)
-        logging.info(f"Created Inspection {name} with id {inspection.id}")
+        logging.info("Created Inspection %s with id %s", name, inspection.id)
 
         return inspection
 
-    async def remove(self, id, **kwargs):
-        await self.accqsure._query(
-            f"/inspection/{id}", "DELETE", dict(**kwargs)
-        )
+    async def remove(self, id_, **kwargs):
+        # pylint: disable=protected-access
+        await self.accqsure._query(f"/inspection/{id_}", "DELETE", {**kwargs})
 
 
 class Inspection:
@@ -63,7 +66,8 @@ class Inspection:
         self._id = self._entity.get("entity_id")
         self._name = self._entity.get("name")
         self._status = self._entity.get("status")
-        self._content_id = self._entity.get("doc_content_id")
+        self._doc_content_id = self._entity.get("doc_content_id")
+        self._content_id = self._entity.get("content_id")
 
     @property
     def id(self) -> str:
@@ -87,12 +91,14 @@ class Inspection:
         return bool(self._id)
 
     async def remove(self):
+        # pylint: disable=protected-access
         await self.accqsure._query(
             f"/inspection/{self._id}",
             "DELETE",
         )
 
     async def rename(self, name):
+        # pylint: disable=protected-access
         resp = await self.accqsure._query(
             f"/inspection/{self._id}",
             "PUT",
@@ -103,6 +109,7 @@ class Inspection:
         return self
 
     async def refresh(self):
+        # pylint: disable=protected-access
         resp = await self.accqsure._query(
             f"/inspection/{self.id}",
             "GET",
@@ -110,11 +117,52 @@ class Inspection:
         self.__init__(self.accqsure, **resp)
         return self
 
+    async def get_doc_contents(self):
+        if not self._doc_content_id:
+            raise SpecificationError(
+                "doc_content_id",
+                "Document content not uploaded for inspection",
+            )
+        # pylint: disable=protected-access
+        resp = await self.accqsure._query(
+            f"/inspection/{self.id}/asset/{self._doc_content_id}/manifest.json",
+            "GET",
+        )
+        return resp
+
+    async def get_doc_content_item(self, name):
+        if not self._doc_content_id:
+            raise SpecificationError(
+                "doc_content_id", "Document not uploaded for inspection"
+            )
+        # pylint: disable=protected-access
+        return await self.accqsure._query(
+            f"/inspection/{self.id}/asset/{self._doc_content_id}/{name}",
+            "GET",
+        )
+
+    async def _set_doc_content_item(
+        self, name, file_name, mime_type, contents
+    ):
+        if not self._doc_content_id:
+            raise SpecificationError(
+                "content_id", "Content not finalized for inspection"
+            )
+        # pylint: disable=protected-access
+        return await self.accqsure._query(
+            f"/inspection/{self.id}/asset/{self._doc_content_id}/{name}",
+            "POST",
+            params={"file_name": file_name},
+            data=contents,
+            headers={"Content-Type": mime_type},
+        )
+
     async def get_contents(self):
         if not self._content_id:
             raise SpecificationError(
-                "content_id", "Content not uploaded for inspection"
+                "content_id", "Content not finalized for inspection"
             )
+        # pylint: disable=protected-access
         resp = await self.accqsure._query(
             f"/inspection/{self.id}/asset/{self._content_id}/manifest.json",
             "GET",
@@ -124,9 +172,24 @@ class Inspection:
     async def get_content_item(self, name):
         if not self._content_id:
             raise SpecificationError(
-                "content_id", "Content not uploaded for inspection"
+                "content_id", "Content not finalized for inspection"
             )
+        # pylint: disable=protected-access
         return await self.accqsure._query(
             f"/inspection/{self.id}/asset/{self._content_id}/{name}",
             "GET",
+        )
+
+    async def _set_content_item(self, name, file_name, mime_type, contents):
+        if not self._content_id:
+            raise SpecificationError(
+                "content_id", "Content not finalized for inspection"
+            )
+        # pylint: disable=protected-access
+        return await self.accqsure._query(
+            f"/inspection/{self.id}/asset/{self._content_id}/{name}",
+            "POST",
+            params={"file_name": file_name},
+            data=contents,
+            headers={"Content-Type": mime_type},
         )
