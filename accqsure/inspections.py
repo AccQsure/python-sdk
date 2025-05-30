@@ -189,7 +189,7 @@ class Inspection:
 
         return await self.accqsure._query(
             f"/inspection/{self.id}/asset/{self._content_id}/{name}",
-            "POST",
+            "PUT",
             params={"file_name": file_name},
             data=contents,
             headers={"Content-Type": mime_type},
