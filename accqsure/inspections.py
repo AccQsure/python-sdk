@@ -233,6 +233,7 @@ class InspectionCheck:
         self._section = self._entity.get("check_section")
         self._name = self._entity.get("check_name")
         self._status = self._entity.get("status")
+        self._critical = self._entity.get("critical")
         self._compliant = self._entity.get("compliant")
         self._rationale = self._entity.get("rationale")
         self._suggestion = self._entity.get("suggestion")
@@ -252,6 +253,10 @@ class InspectionCheck:
     @property
     def status(self) -> str:
         return self._status
+
+    @property
+    def critical(self) -> bool:
+        return self._critical
 
     @property
     def compliant(self) -> Optional[bool]:

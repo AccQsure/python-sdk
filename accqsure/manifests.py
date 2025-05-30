@@ -194,6 +194,7 @@ class ManifestCheck:
         self._section = self._entity.get("section")
         self._name = self._entity.get("name")
         self._prompt = self._entity.get("prompt")
+        self._critical = self._entity.get("critical")
 
     @property
     def id(self) -> str:
@@ -210,6 +211,10 @@ class ManifestCheck:
     @property
     def prompt(self) -> str:
         return self._prompt
+
+    @property
+    def critical(self) -> bool:
+        return self._critical
 
     def __str__(self):
         return json.dumps({k: v for k, v in self._entity.items()})
