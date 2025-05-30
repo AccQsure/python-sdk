@@ -86,7 +86,7 @@ async def get_access_token(key):
             key["private_key"],
         )
     except Exception as error:
-        raise AccQsureException(f"Error signing client JWT {error}")
+        raise AccQsureException(f"Error signing client JWT {error}") from error
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
@@ -95,7 +95,7 @@ async def get_access_token(key):
             data={
                 "grant_type": "client_credentials",
                 "client_id": key["client_id"],
-                "scope": "admin",
+                "scope": "read:documents write:documents admin internal:task",
                 "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
                 "client_assertion": token,
             },
@@ -104,7 +104,9 @@ async def get_access_token(key):
                 access_token = await resp.json()
             except:
                 error = resp.text
-                raise AccQsureException(f"Error fetching access token {error}")
+                raise AccQsureException(
+                    f"Error fetching access token {error}"
+                ) from error
 
     api_url = urlparse(key["auth_uri"])
     return dict(
@@ -137,9 +139,9 @@ async def save_token(token_file_path: str, token: Token):
 
 def is_token_valid(token: Token):
     if not token:
-        logging.debug(f"Token absent")
+        logging.debug("Token absent")
         return False
-    logging.debug(f"Token expires: {token.expires_at}")
+    logging.debug("Token expires: %s", token.expires_at)
     return (token.expires_at - 60) > time.time()
 
 
@@ -159,23 +161,23 @@ class Auth(object):
                     data = await f.read()
 
                 self.key = json.loads(data)
-            except FileNotFoundError:
+            except FileNotFoundError as e:
                 raise AccQsureException(
                     f"AccQsure credentials file {self.credentials_file} not found"
-                )
+                ) from e
         token = await get_access_token(self.key)
-        logging.debug(f"Token Response {token}")
+        logging.debug("Token Response %s", token)
         self.token = Token(**token)
-        logging.debug(f"New Token {self.token}")
+        logging.debug("New Token %s", self.token)
         await save_token(self.token_file_path, self.token)
 
     async def get_token(self):
         if is_token_valid(self.token):
-            logging.debug(f"Token is valid")
+            logging.debug("Token is valid")
             return self.token
         else:
             if not self.token:
-                logging.debug(f"Checking cached token")
+                logging.debug("Checking cached token")
                 token = await load_cached_token(self.token_file_path)
                 if is_token_valid(token):
                     self.token = token
@@ -184,6 +186,6 @@ class Auth(object):
             else:
                 await self.get_new_token()
 
-        logging.debug(f"Token expires: {self.token.expires_at}")
+        logging.debug("Token expires: %s", self.token.expires_at)
 
         return self.token
