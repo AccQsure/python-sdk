@@ -1,6 +1,6 @@
 import json
 import logging
-
+from typing import Optional
 from accqsure.exceptions import SpecificationError
 
 
@@ -254,15 +254,15 @@ class InspectionCheck:
         return self._status
 
     @property
-    def compliant(self) -> bool:
+    def compliant(self) -> Optional[bool]:
         return self._compliant
 
     @property
-    def rationale(self) -> str:
+    def rationale(self) -> Optional[str]:
         return self._rationale
 
     @property
-    def suggestion(self) -> str:
+    def suggestion(self) -> Optional[str]:
         return self._suggestion
 
     def __str__(self):
