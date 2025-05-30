@@ -66,6 +66,7 @@ class Inspection:
         self._entity = kwargs
         self._id = self._entity.get("entity_id")
         self._name = self._entity.get("name")
+        self._type = self._entity.get("type")
         self._status = self._entity.get("status")
         self._doc_content_id = self._entity.get("doc_content_id")
         self._content_id = self._entity.get("content_id")
@@ -73,6 +74,10 @@ class Inspection:
     @property
     def id(self) -> str:
         return self._id
+
+    @property
+    def type(self) -> str:
+        return self._type
 
     @property
     def status(self) -> str:
