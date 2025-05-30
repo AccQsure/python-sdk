@@ -24,8 +24,11 @@ def list(config, document_type_id):
         ],
     ]
 
-    manifests = config.accqsure.run(
-        config.accqsure.client.manifests.list(document_type_id=document_type_id)
+    # TODO: implement cursor function
+    manifests, _ = config.accqsure.run(
+        config.accqsure.client.manifests.list(
+            document_type_id=document_type_id
+        )
     )
     for manifest in manifests:
         data.append(

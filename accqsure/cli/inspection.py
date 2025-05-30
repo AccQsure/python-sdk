@@ -1,7 +1,7 @@
 import click
 import os
 import base64
-import magic
+import mimetypes
 from enum import Enum
 from accqsure.cli import cli, pass_config
 
@@ -45,8 +45,8 @@ def list(config, type):
             "-" * 80,
         ],
     ]
-
-    inspections = config.accqsure.run(
+    # TODO: implement cursor function
+    inspections, _ = config.accqsure.run(
         config.accqsure.client.inspections.list(type=type)
     )
     for doc in inspections:
@@ -83,8 +83,7 @@ def list(config, type):
 
 #     """
 
-#     mime = magic.Magic(mime=True)
-#     mime_type = mime.from_file(file)
+#     mime_type, _ = mimetypes.guess_type(file)
 
 #     if mime_type not in DOCUMENT_TYPES:
 #         raise ValueError(

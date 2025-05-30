@@ -46,11 +46,13 @@ def list(config, document_type_id):
         ],
     ]
 
-    documents = config.accqsure.run(
+    # TODO: implement cursor function
+    documents, _ = config.accqsure.run(
         config.accqsure.client.documents.list(
             document_type_id=document_type_id
         )
     )
+    print(documents)
     for doc in documents:
         data.append(
             [

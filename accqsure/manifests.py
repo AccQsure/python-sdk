@@ -8,22 +8,30 @@ class Manifests(object):
     def __init__(self, accqsure):
         self.accqsure = accqsure
 
-    async def get(self, id, **kwargs):
-        resp = await self.accqsure._query(f"/manifest/{id}", "GET", kwargs)
+    async def get(self, id_, **kwargs):
+        resp = await self.accqsure._query(f"/manifest/{id_}", "GET", kwargs)
         return Manifest(self.accqsure, **resp)
 
     async def get_global(self, **kwargs):
-        resp = await self.accqsure._query(f"/manifest/global", "GET", kwargs)
+        resp = await self.accqsure._query("/manifest/global", "GET", kwargs)
         return Manifest(self.accqsure, **resp)
 
-    async def list(self, document_type_id, **kwargs):
+    async def list(self, document_type_id, limit=50, start_key=None, **kwargs):
         resp = await self.accqsure._query(
-            f"/manifest",
+            "/manifest",
             "GET",
-            dict(document_type_id=document_type_id, **kwargs),
+            {
+                "document_type_id": document_type_id,
+                "limit": limit,
+                "start_key": start_key,
+                **kwargs,
+            },
         )
-        manifests = [Manifest(self.accqsure, **manifest) for manifest in resp]
-        return manifests
+        manifests = [
+            Manifest(self.accqsure, **manifest)
+            for manifest in resp.get("results")
+        ]
+        return manifests, resp.get("last_key")
 
     async def create(
         self,
@@ -40,15 +48,17 @@ class Manifests(object):
             **kwargs,
         )
         payload = {k: v for k, v in data.items() if v is not None}
-        logging.info(f"Creating Manifest {name}")
+        logging.info("Creating Manifest %s", name)
         resp = await self.accqsure._query("/manifest", "POST", None, payload)
         manifest = Manifest(self.accqsure, **resp)
-        logging.info(f"Created Manifest {name} with id {manifest.id}")
+        logging.info("Created Manifest %s with id %s", name, manifest.id)
 
         return manifest
 
-    async def remove(self, id, **kwargs):
-        await self.accqsure._query(f"/manifest/{id}", "DELETE", dict(**kwargs))
+    async def remove(self, id_, **kwargs):
+        await self.accqsure._query(
+            f"/manifest/{id_}", "DELETE", dict(**kwargs)
+        )
 
 
 class Manifest:
@@ -140,14 +150,17 @@ class Manifest:
         )
         return resp
 
-    async def list_checks(self, **kwargs):
+    async def list_checks(self, limit=50, start_key=None, **kwargs):
         resp = await self.accqsure._query(
-            f"/manifest/{self.id}/check", "GET", kwargs
+            f"/manifest/{self.id}/check",
+            "GET",
+            {"limit": limit, "start_key": start_key, **kwargs},
         )
         checks = [
-            ManifestCheck(self.accqsure, self, **check) for check in resp
+            ManifestCheck(self.accqsure, self, **check)
+            for check in resp.get("results")
         ]
-        return checks
+        return checks, resp.get("last_key")
 
     async def create_check(self, name, section, prompt, **kwargs):
         data = dict(
@@ -157,12 +170,12 @@ class Manifest:
             **kwargs,
         )
         payload = {k: v for k, v in data.items() if v is not None}
-        logging.info(f"Creating Manifest Check {name}")
+        logging.info("Creating Manifest Check %s", name)
         resp = await self.accqsure._query(
             f"/manifest/{self.id}/check", "POST", None, payload
         )
         check = ManifestCheck(self.accqsure, self, **resp)
-        logging.info(f"Created Manifest Check {name} with id {check.id}")
+        logging.info("Created Manifest Check %s with id %s", name, check.id)
 
         return check
 
@@ -208,12 +221,14 @@ class ManifestCheck:
         return bool(self._id)
 
     async def remove(self):
+
         await self.accqsure._query(
             f"/manifest/{self._manifest.id}/check/{self.id}",
             "DELETE",
         )
 
     async def update(self, **kwargs):
+
         resp = await self.accqsure._query(
             f"/manifest/{self._manifest.id}/check/{self.id}",
             "PUT",
@@ -224,6 +239,7 @@ class ManifestCheck:
         return self
 
     async def refresh(self):
+
         resp = await self.accqsure._query(
             f"/manifest/{self._manifest.id}/check/{self.id}",
             "GET",

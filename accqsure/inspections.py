@@ -10,21 +10,22 @@ class Inspections(object):
         self.accqsure = accqsure
 
     async def get(self, id_, **kwargs):
-        # pylint: disable=protected-access
+
         resp = await self.accqsure._query(f"/inspection/{id_}", "GET", kwargs)
         return Inspection(self.accqsure, **resp)
 
-    async def list(self, type_, **kwargs):
-        # pylint: disable=protected-access
+    async def list(self, type_, limit=50, start_key=None, **kwargs):
+
         resp = await self.accqsure._query(
             "/inspection",
             "GET",
-            {"type": type_, **kwargs},
+            {"type": type_, "limit": limit, "start_key": start_key, **kwargs},
         )
         inspections = [
-            Inspection(self.accqsure, **inspection) for inspection in resp
+            Inspection(self.accqsure, **inspection)
+            for inspection in resp.get("results")
         ]
-        return inspections
+        return inspections, resp.get("last_key")
 
     async def create(
         self,
@@ -47,7 +48,7 @@ class Inspections(object):
         )
         payload = {k: v for k, v in data.items() if v is not None}
         logging.info("Creating Inspection %s", name)
-        # pylint: disable=protected-access
+
         resp = await self.accqsure._query("/inspection", "POST", None, payload)
         inspection = Inspection(self.accqsure, **resp)
         logging.info("Created Inspection %s with id %s", name, inspection.id)
@@ -55,7 +56,7 @@ class Inspections(object):
         return inspection
 
     async def remove(self, id_, **kwargs):
-        # pylint: disable=protected-access
+
         await self.accqsure._query(f"/inspection/{id_}", "DELETE", {**kwargs})
 
 
@@ -91,14 +92,14 @@ class Inspection:
         return bool(self._id)
 
     async def remove(self):
-        # pylint: disable=protected-access
+
         await self.accqsure._query(
             f"/inspection/{self._id}",
             "DELETE",
         )
 
     async def rename(self, name):
-        # pylint: disable=protected-access
+
         resp = await self.accqsure._query(
             f"/inspection/{self._id}",
             "PUT",
@@ -109,7 +110,7 @@ class Inspection:
         return self
 
     async def refresh(self):
-        # pylint: disable=protected-access
+
         resp = await self.accqsure._query(
             f"/inspection/{self.id}",
             "GET",
@@ -123,7 +124,7 @@ class Inspection:
                 "doc_content_id",
                 "Document content not uploaded for inspection",
             )
-        # pylint: disable=protected-access
+
         resp = await self.accqsure._query(
             f"/inspection/{self.id}/asset/{self._doc_content_id}/manifest.json",
             "GET",
@@ -135,7 +136,7 @@ class Inspection:
             raise SpecificationError(
                 "doc_content_id", "Document not uploaded for inspection"
             )
-        # pylint: disable=protected-access
+
         return await self.accqsure._query(
             f"/inspection/{self.id}/asset/{self._doc_content_id}/{name}",
             "GET",
@@ -148,7 +149,7 @@ class Inspection:
             raise SpecificationError(
                 "content_id", "Content not finalized for inspection"
             )
-        # pylint: disable=protected-access
+
         return await self.accqsure._query(
             f"/inspection/{self.id}/asset/{self._doc_content_id}/{name}",
             "POST",
@@ -162,7 +163,7 @@ class Inspection:
             raise SpecificationError(
                 "content_id", "Content not finalized for inspection"
             )
-        # pylint: disable=protected-access
+
         resp = await self.accqsure._query(
             f"/inspection/{self.id}/asset/{self._content_id}/manifest.json",
             "GET",
@@ -174,7 +175,7 @@ class Inspection:
             raise SpecificationError(
                 "content_id", "Content not finalized for inspection"
             )
-        # pylint: disable=protected-access
+
         return await self.accqsure._query(
             f"/inspection/{self.id}/asset/{self._content_id}/{name}",
             "GET",
@@ -185,7 +186,7 @@ class Inspection:
             raise SpecificationError(
                 "content_id", "Content not finalized for inspection"
             )
-        # pylint: disable=protected-access
+
         return await self.accqsure._query(
             f"/inspection/{self.id}/asset/{self._content_id}/{name}",
             "POST",
@@ -193,3 +194,102 @@ class Inspection:
             data=contents,
             headers={"Content-Type": mime_type},
         )
+
+    async def list_checks(
+        self,
+        document_id=None,
+        manifest_id=None,
+        limit=50,
+        start_key=None,
+        name=None,
+        **kwargs,
+    ):
+
+        resp = await self.accqsure._query(
+            f"/inspection/{self.id}/check",
+            "GET",
+            {
+                "document_id": document_id,
+                "manifest_id": manifest_id,
+                "limit": limit,
+                "start_key": start_key,
+                "name": name,
+                **kwargs,
+            },
+        )
+        checks = [
+            InspectionCheck(self.accqsure, self, **check)
+            for check in resp.get("results")
+        ]
+        return checks, resp.get("last_key")
+
+
+class InspectionCheck:
+    def __init__(self, accqsure, inspection, **kwargs):
+        self.accqsure = accqsure
+        self._entity = kwargs
+        self._inspection = inspection
+        self._id = self._entity.get("entity_id")
+        self._section = self._entity.get("check_section")
+        self._name = self._entity.get("check_name")
+        self._status = self._entity.get("status")
+        self._compliant = self._entity.get("compliant")
+        self._rationale = self._entity.get("rationale")
+        self._suggestion = self._entity.get("suggestion")
+
+    @property
+    def id(self) -> str:
+        return self._id
+
+    @property
+    def section(self) -> str:
+        return self._section
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def status(self) -> str:
+        return self._status
+
+    @property
+    def compliant(self) -> bool:
+        return self._compliant
+
+    @property
+    def rationale(self) -> str:
+        return self._rationale
+
+    @property
+    def suggestion(self) -> str:
+        return self._suggestion
+
+    def __str__(self):
+        return json.dumps({k: v for k, v in self._entity.items()})
+
+    def __repr__(self):
+        return f"InspectionCheck( accqsure , **{self._entity.__repr__()})"
+
+    def __bool__(self):
+        return bool(self._id)
+
+    async def update(self, **kwargs):
+
+        resp = await self.accqsure._query(
+            f"/inspection/{self._inspection.id}/check/{self.id}",
+            "PUT",
+            None,
+            dict(**kwargs),
+        )
+        self.__init__(self.accqsure, self._inspection, **resp)
+        return self
+
+    async def refresh(self):
+
+        resp = await self.accqsure._query(
+            f"/inspection/{self._inspection.id}/check/{self.id}",
+            "GET",
+        )
+        self.__init__(self.accqsure, self._inspection, **resp)
+        return self

@@ -10,19 +10,22 @@ class Documents(object):
         self.accqsure = accqsure
 
     async def get(self, id_, **kwargs):
-        # pylint: disable=protected-access
+
         resp = await self.accqsure._query(f"/document/{id_}", "GET", kwargs)
         return Document(self.accqsure, **resp)
 
     async def list(self, document_type_id, **kwargs):
-        # pylint: disable=protected-access
         resp = await self.accqsure._query(
             "/document",
             "GET",
             dict(document_type_id=document_type_id, **kwargs),
         )
-        documents = [Document(self.accqsure, **document) for document in resp]
-        return documents
+
+        documents = [
+            Document(self.accqsure, **document)
+            for document in resp.get("results")
+        ]
+        return documents, resp.get("last_key")
 
     async def create(
         self,
@@ -42,7 +45,7 @@ class Documents(object):
         )
         payload = {k: v for k, v in data.items() if v is not None}
         logging.info("Creating Document %s", name)
-        # pylint: disable=protected-access
+
         resp = await self.accqsure._query("/document", "POST", None, payload)
         document = Document(self.accqsure, **resp)
         logging.info("Created Document %s with id %s", name, document.id)
@@ -65,7 +68,7 @@ class Documents(object):
     #     return result.get("contents")
 
     async def remove(self, id_, **kwargs):
-        # pylint: disable=protected-access
+
         await self.accqsure._query(
             f"/document/{id_}", "DELETE", dict(**kwargs)
         )
@@ -107,14 +110,14 @@ class Document:
         return bool(self._id)
 
     async def remove(self):
-        # pylint: disable=protected-access
+
         await self.accqsure._query(
             f"/document/{self._id}",
             "DELETE",
         )
 
     async def rename(self, name):
-        # pylint: disable=protected-access
+
         resp = await self.accqsure._query(
             f"/document/{self._id}",
             "PUT",
@@ -125,7 +128,7 @@ class Document:
         return self
 
     async def refresh(self):
-        # pylint: disable=protected-access
+
         resp = await self.accqsure._query(
             f"/document/{self.id}",
             "GET",
@@ -138,7 +141,7 @@ class Document:
             raise SpecificationError(
                 "content_id", "Content not uploaded for document"
             )
-        # pylint: disable=protected-access
+
         resp = await self.accqsure._query(
             f"/document/{self.id}/asset/{self._content_id}/manifest.json",
             "GET",
@@ -150,7 +153,7 @@ class Document:
             raise SpecificationError(
                 "content_id", "Content not uploaded for document"
             )
-        # pylint: disable=protected-access
+
         return await self.accqsure._query(
             f"/document/{self.id}/asset/{self._content_id}/{name}",
             "GET",
@@ -161,7 +164,7 @@ class Document:
             raise SpecificationError(
                 "content_id", "Content not finalized for inspection"
             )
-        # pylint: disable=protected-access
+
         return await self.accqsure._query(
             f"/inspection/{self.id}/asset/{self._content_id}/{name}",
             "POST",
@@ -171,7 +174,7 @@ class Document:
         )
 
     async def list_manifests(self):
-        # pylint: disable=protected-access
+
         resp = await self.accqsure._query(
             f"/document/{self.id}/manifest",
             "GET",

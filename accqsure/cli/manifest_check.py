@@ -23,9 +23,12 @@ def list(config, manifest_id):
             "-" * 80,
         ],
     ]
-    manifest = config.accqsure.run(config.accqsure.client.manifests.get(id=manifest_id))
+    manifest = config.accqsure.run(
+        config.accqsure.client.manifests.get(id=manifest_id)
+    )
 
-    checks = config.accqsure.run(manifest.list_checks())
+    # TODO: implement cursor function
+    checks, _ = config.accqsure.run(manifest.list_checks())
     for check in checks:
         data.append(
             [
