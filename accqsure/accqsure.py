@@ -93,6 +93,7 @@ class AccQsure(object):
             params = {
                 k: (str(v).lower() if isinstance(v, bool) else v)
                 for k, v in params.items()
+                if v is not None
             }  ## aiohttp doesn't support boolean
 
         if "Content-Type" not in headers:
@@ -181,6 +182,7 @@ class AccQsure(object):
             params = {
                 k: (str(v).lower() if isinstance(v, bool) else v)
                 for k, v in params.items()
+                if v is not None
             }  ## aiohttp doesn't support boolean
 
         if "Content-Type" not in headers:

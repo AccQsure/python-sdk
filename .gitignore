@@ -22,3 +22,4 @@ sync.sh
 *.jwk
 *.pem
 tmp.py
+*.ipynb
