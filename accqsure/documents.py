@@ -166,7 +166,7 @@ class Document:
             )
 
         return await self.accqsure._query(
-            f"/inspection/{self.id}/asset/{self._content_id}/{name}",
+            f"/document/{self.id}/asset/{self._content_id}/{name}",
             "PUT",
             params={"file_name": file_name},
             data=contents,
