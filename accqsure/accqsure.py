@@ -227,7 +227,7 @@ class AccQsure(object):
                                 .strip()
                             )
                             # pylint: disable=no-member
-                            logging.trace(clean_line)
+                            # logging.trace(clean_line)
                             if clean_line == "[DONE]":
                                 continue
                             try:
@@ -238,7 +238,7 @@ class AccQsure(object):
 
                             if response.get("generated_text"):
                                 # pylint: disable=no-member
-                                logging.trace("final response: %s", response)
+                                # logging.trace("final response: %s", response)
                                 return response.get("generated_text")
                             elif response.get("choices")[0].get(
                                 "finish_reason"
