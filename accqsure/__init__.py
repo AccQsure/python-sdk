@@ -16,9 +16,10 @@ logging.Logger.trace = trace
 logging.basicConfig(
     format="%(asctime)s.%(msecs)03dZ  %(levelname)s  %(message)s",
     datefmt="%Y-%m-%dT%H:%M:%S",
+    level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+logger.propagate = False
 
-
-__version__ = "0.1.23"
+__version__ = "0.1.24"
 __all__ = ("AccQsure",)
