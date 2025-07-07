@@ -226,7 +226,8 @@ class AccQsure(object):
                                 .removeprefix("data:")
                                 .strip()
                             )
-                            logging.debug(clean_line)
+                            # pylint: disable=no-member
+                            logging.trace(clean_line)
                             if clean_line == "[DONE]":
                                 continue
                             try:
@@ -236,7 +237,8 @@ class AccQsure(object):
                                 continue
 
                             if response.get("generated_text"):
-                                logging.debug("final response: %s", response)
+                                # pylint: disable=no-member
+                                logging.trace("final response: %s", response)
                                 return response.get("generated_text")
                             elif response.get("choices")[0].get(
                                 "finish_reason"
