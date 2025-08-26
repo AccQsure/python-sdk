@@ -5,6 +5,7 @@ import logging
 import traceback
 import math
 import asyncio
+import io
 from importlib.metadata import version
 
 from accqsure.auth import Auth
@@ -98,6 +99,19 @@ class AccQsure(object):
 
         if "Content-Type" not in headers:
             headers["Content-Type"] = "application/json"
+
+        if headers["Content-Type"] == "application/json" and data is not None:
+            if isinstance(data, (dict, list, bool, type(None))):
+                # Serialize Python objects to JSON string
+                data = json.dumps(data)
+            if isinstance(data, str):
+                # Encode string to bytes
+                data = data.encode("utf-8")
+            if isinstance(data, (bytes, bytearray)):
+                # Wrap bytes in BytesIO to avoid event loop warning
+                data = io.BytesIO(data)
+            # If data is io.IOBase (e.g., BytesIO, open file), pass as-is for streaming
+
         url = f"{api_endpoint}/v1{path}"
 
         logging.debug(
@@ -112,11 +126,7 @@ class AccQsure(object):
             async with session.request(
                 method,
                 url,
-                data=(
-                    json.dumps(data)
-                    if headers["Content-Type"] == "application/json"
-                    else data
-                ),
+                data=data,
                 headers=headers,
                 params=params,
             ) as resp:
