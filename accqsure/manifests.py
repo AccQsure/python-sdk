@@ -184,6 +184,15 @@ class Manifest:
             f"/manifest/{self.id}/check/{check_id}", "DELETE", dict(**kwargs)
         )
 
+    async def _set_asset(self, path, file_name, mime_type, contents):
+        return await self.accqsure._query(
+            f"/manifest/{self.id}/asset/{path}",
+            "PUT",
+            params={"file_name": file_name},
+            data=contents,
+            headers={"Content-Type": mime_type},
+        )
+
 
 class ManifestCheck:
     def __init__(self, accqsure, manifest, **kwargs):

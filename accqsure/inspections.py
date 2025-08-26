@@ -123,6 +123,15 @@ class Inspection:
         self.__init__(self.accqsure, **resp)
         return self
 
+    async def _set_asset(self, path, file_name, mime_type, contents):
+        return await self.accqsure._query(
+            f"/inspection/{self.id}/asset/{path}",
+            "PUT",
+            params={"file_name": file_name},
+            data=contents,
+            headers={"Content-Type": mime_type},
+        )
+
     async def get_doc_contents(self):
         if not self._doc_content_id:
             raise SpecificationError(
@@ -154,13 +163,8 @@ class Inspection:
             raise SpecificationError(
                 "content_id", "Content not finalized for inspection"
             )
-
-        return await self.accqsure._query(
-            f"/inspection/{self.id}/asset/{self._doc_content_id}/{name}",
-            "PUT",
-            params={"file_name": file_name},
-            data=contents,
-            headers={"Content-Type": mime_type},
+        return await self._set_asset(
+            f"{self._doc_content_id}/{name}", file_name, mime_type, contents
         )
 
     async def get_contents(self):
@@ -191,13 +195,8 @@ class Inspection:
             raise SpecificationError(
                 "content_id", "Content not finalized for inspection"
             )
-
-        return await self.accqsure._query(
-            f"/inspection/{self.id}/asset/{self._content_id}/{name}",
-            "PUT",
-            params={"file_name": file_name},
-            data=contents,
-            headers={"Content-Type": mime_type},
+        return await self._set_asset(
+            f"{self._content_id}/{name}", file_name, mime_type, contents
         )
 
     async def list_checks(
