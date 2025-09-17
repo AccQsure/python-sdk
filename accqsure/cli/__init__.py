@@ -121,3 +121,4 @@ from accqsure.cli.document import document
 from accqsure.cli.document_type import document_type
 from accqsure.cli.manifest import manifest
 from accqsure.cli.inspection import inspection
+from accqsure.cli.plot import plot

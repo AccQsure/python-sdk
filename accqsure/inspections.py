@@ -44,7 +44,8 @@ class Inspections(object):
             document_type_id=document_type_id,
             manifests=manifests,
             draft=draft,
-            documents=documents**kwargs,
+            documents=documents,
+            **kwargs,
         )
         payload = {k: v for k, v in data.items() if v is not None}
         logging.info("Creating Inspection %s", name)
