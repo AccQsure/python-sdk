@@ -8,11 +8,11 @@ class PlotMarkers(object):
         self,
         accqsure,
         plot_id,
-        waypoint_id,
+        plot_waypoint_id,
     ):
         self.accqsure = accqsure
         self.plot_id = plot_id
-        self.waypoint_id = waypoint_id
+        self.waypoint_id = plot_waypoint_id
 
     async def get(self, id_, **kwargs):
 
@@ -72,10 +72,10 @@ class PlotMarkers(object):
 
 
 class PlotMarker:
-    def __init__(self, accqsure, plot_id, waypoint_id, **kwargs):
+    def __init__(self, accqsure, plot_id, plot_waypoint_id, **kwargs):
         self.accqsure = accqsure
         self.plot_id = plot_id
-        self.waypoint_id = waypoint_id
+        self.waypoint_id = plot_waypoint_id
         self._entity = kwargs
         self._id = self._entity.get("entity_id")
         self._name = self._entity.get("name")

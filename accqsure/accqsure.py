@@ -31,14 +31,20 @@ DEFAULT_CREDENTIAL_FILE_NAME = "credentials.json"
 class AccQsure(object):
     def __init__(self, **kwargs):
         self._version = version("accqsure")
-        config_dir = kwargs.get("config_dir") or os.path.expanduser(
-            os.environ.get("ACCQSURE_CONFIG_DIR") or DEFAULT_CONFIG_DIR
+        config_dir = (
+            os.path.expanduser(kwargs.get("config_dir"))
+            if kwargs.get("config_dir")
+            else os.path.expanduser(
+                os.environ.get("ACCQSURE_CONFIG_DIR") or DEFAULT_CONFIG_DIR
+            )
         )
-        credentials_file = kwargs.get(
-            "credentials_file"
-        ) or os.path.expanduser(
-            os.environ.get("ACCQSURE_CREDENTIALS_FILE")
-            or f"{config_dir}/{DEFAULT_CREDENTIAL_FILE_NAME}"
+        credentials_file = (
+            os.path.expanduser(kwargs.get("credentials_file"))
+            if kwargs.get("credentials_file")
+            else os.path.expanduser(
+                os.environ.get("ACCQSURE_CREDENTIALS_FILE")
+                or f"{config_dir}/{DEFAULT_CREDENTIAL_FILE_NAME}"
+            )
         )
         self.auth = Auth(
             config_dir=config_dir,

@@ -6,11 +6,11 @@ class PlotElements(object):
         self,
         accqsure,
         plot_id,
-        section_id,
+        plot_section_id,
     ):
         self.accqsure = accqsure
         self.plot_id = plot_id
-        self.section_id = section_id
+        self.section_id = plot_section_id
 
     async def get(self, id_, **kwargs):
 
@@ -38,10 +38,10 @@ class PlotElements(object):
 
 
 class PlotElement:
-    def __init__(self, accqsure, plot_id, section_id, **kwargs):
+    def __init__(self, accqsure, plot_id, plot_section_id, **kwargs):
         self.accqsure = accqsure
         self.plot_id = plot_id
-        self.section_id = section_id
+        self.section_id = plot_section_id
         self._entity = kwargs
         self._id = self._entity.get("entity_id")
         self._order = self._entity.get("order")
