@@ -33,7 +33,8 @@ class PlotMarkers(object):
             {"limit": limit, "start_key": start_key, **kwargs},
         )
         plots = [
-            PlotMarker(self.accqsure, **plot) for plot in resp.get("results")
+            PlotMarker(self.accqsure, self.plot_id, self.waypoint_id, **plot)
+            for plot in resp.get("results")
         ]
         return plots, resp.get("last_key")
 
