@@ -60,6 +60,10 @@ class PlotElement:
         return self._order
 
     @property
+    def type(self) -> str:
+        return self._type
+
+    @property
     def status(self) -> str:
         return self._status
 
