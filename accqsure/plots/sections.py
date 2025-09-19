@@ -21,11 +21,11 @@ class PlotSections(object):
             "GET",
             {"limit": limit, "start_key": start_key, **kwargs},
         )
-        plots = [
-            PlotSection(self.accqsure, self.plot_id, **plot)
-            for plot in resp.get("results")
+        plot_sections = [
+            PlotSection(self.accqsure, self.plot_id, **plot_section)
+            for plot_section in resp.get("results")
         ]
-        return plots, resp.get("last_key")
+        return plot_sections, resp.get("last_key")
 
 
 class PlotSection:
@@ -35,6 +35,8 @@ class PlotSection:
         self._entity = kwargs
         self._id = self._entity.get("entity_id")
         self._heading = self._entity.get("heading")
+        self._number = self._entity.get("number")
+        self._style = self._entity.get("style")
         self._order = self._entity.get("order")
         self.elements = PlotElements(self.accqsure, self.plot_id, self._id)
 
@@ -45,6 +47,14 @@ class PlotSection:
     @property
     def heading(self) -> str:
         return self._heading
+
+    @property
+    def number(self) -> str:
+        return self._number
+
+    @property
+    def style(self) -> str:
+        return self._style
 
     @property
     def order(self) -> int:

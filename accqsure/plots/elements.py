@@ -30,11 +30,13 @@ class PlotElements(object):
             "GET",
             {"limit": limit, "start_key": start_key, **kwargs},
         )
-        plots = [
-            PlotElement(self.accqsure, self.plot_id, self.section_id, **plot)
-            for plot in resp.get("results")
+        plot_elements = [
+            PlotElement(
+                self.accqsure, self.plot_id, self.section_id, **plot_element
+            )
+            for plot_element in resp.get("results")
         ]
-        return plots, resp.get("last_key")
+        return plot_elements, resp.get("last_key")
 
 
 class PlotElement:

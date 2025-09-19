@@ -21,11 +21,11 @@ class PlotWaypoints(object):
             "GET",
             {"limit": limit, "start_key": start_key, **kwargs},
         )
-        plots = [
-            PlotWaypoint(self.accqsure, self.plot_id, **plot)
-            for plot in resp.get("results")
+        plot_waypoints = [
+            PlotWaypoint(self.accqsure, self.plot_id, **plot_waypoint)
+            for plot_waypoint in resp.get("results")
         ]
-        return plots, resp.get("last_key")
+        return plot_waypoints, resp.get("last_key")
 
 
 class PlotWaypoint:

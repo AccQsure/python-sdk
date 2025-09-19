@@ -32,11 +32,13 @@ class PlotMarkers(object):
             "GET",
             {"limit": limit, "start_key": start_key, **kwargs},
         )
-        plots = [
-            PlotMarker(self.accqsure, self.plot_id, self.waypoint_id, **plot)
-            for plot in resp.get("results")
+        plot_markers = [
+            PlotMarker(
+                self.accqsure, self.plot_id, self.waypoint_id, **plot_marker
+            )
+            for plot_marker in resp.get("results")
         ]
-        return plots, resp.get("last_key")
+        return plot_markers, resp.get("last_key")
 
     async def create(
         self,
@@ -59,12 +61,12 @@ class PlotMarkers(object):
             None,
             payload,
         )
-        plot = PlotMarker(
+        plot_marker = PlotMarker(
             self.accqsure, self.plot_id, self.waypoint_id, **resp
         )
-        logging.info("Created Plot Marker %s with id %s", name, plot.id)
+        logging.info("Created Plot Marker %s with id %s", name, plot_marker.id)
 
-        return plot
+        return plot_marker
 
     async def remove(self, id_, **kwargs):
 
