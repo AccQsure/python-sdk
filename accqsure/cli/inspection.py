@@ -47,7 +47,7 @@ def list(config, type):
     ]
     # TODO: implement cursor function
     inspections, _ = config.accqsure.run(
-        config.accqsure.client.inspections.list(type=type)
+        config.accqsure.client.inspections.list(inspection_type=type)
     )
     for doc in inspections:
         data.append(

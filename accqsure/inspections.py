@@ -14,12 +14,17 @@ class Inspections(object):
         resp = await self.accqsure._query(f"/inspection/{id_}", "GET", kwargs)
         return Inspection(self.accqsure, **resp)
 
-    async def list(self, type_, limit=50, start_key=None, **kwargs):
+    async def list(self, inspection_type, limit=50, start_key=None, **kwargs):
 
         resp = await self.accqsure._query(
             "/inspection",
             "GET",
-            {"type": type_, "limit": limit, "start_key": start_key, **kwargs},
+            {
+                "type": inspection_type,
+                "limit": limit,
+                "start_key": start_key,
+                **kwargs,
+            },
         )
         inspections = [
             Inspection(self.accqsure, **inspection)
@@ -29,7 +34,7 @@ class Inspections(object):
 
     async def create(
         self,
-        type_,
+        inspection_type,
         name,
         document_type_id,
         manifests,
@@ -40,7 +45,7 @@ class Inspections(object):
 
         data = dict(
             name=name,
-            type=type_,
+            type=inspection_type,
             document_type_id=document_type_id,
             manifests=manifests,
             draft=draft,
@@ -111,6 +116,15 @@ class Inspection:
             "PUT",
             None,
             dict(name=name),
+        )
+        self.__init__(self.accqsure, **resp)
+        return self
+
+    async def run(self):
+
+        resp = await self.accqsure._query(
+            f"/inspection/{self.id}/run",
+            "POST",
         )
         self.__init__(self.accqsure, **resp)
         return self
@@ -199,6 +213,14 @@ class Inspection:
         return await self._set_asset(
             f"{self._content_id}/{name}", file_name, mime_type, contents
         )
+
+    async def download_report(self):
+        if not self._content_id:
+            raise SpecificationError(
+                "content_id", "Content not finalized for inspection"
+            )
+        manifest = await self.get_contents()
+        return await self.get_content_item(manifest.get("report"))
 
     async def list_checks(
         self,

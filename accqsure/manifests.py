@@ -16,22 +16,43 @@ class Manifests(object):
         resp = await self.accqsure._query("/manifest/global", "GET", kwargs)
         return Manifest(self.accqsure, **resp)
 
-    async def list(self, document_type_id, limit=50, start_key=None, **kwargs):
-        resp = await self.accqsure._query(
-            "/manifest",
-            "GET",
-            {
-                "document_type_id": document_type_id,
-                "limit": limit,
-                "start_key": start_key,
-                **kwargs,
-            },
-        )
-        manifests = [
-            Manifest(self.accqsure, **manifest)
-            for manifest in resp.get("results")
-        ]
-        return manifests, resp.get("last_key")
+    async def list(
+        self,
+        document_type_id,
+        limit=50,
+        start_key=None,
+        fetch_all=False,
+        **kwargs,
+    ):
+        if fetch_all:
+            resp = await self.accqsure._query_all(
+                "/manifest",
+                "GET",
+                {
+                    "document_type_id": document_type_id,
+                    **kwargs,
+                },
+            )
+            manifests = [
+                Manifest(self.accqsure, **manifest) for manifest in resp
+            ]
+            return manifests
+        else:
+            resp = await self.accqsure._query(
+                "/manifest",
+                "GET",
+                {
+                    "document_type_id": document_type_id,
+                    "limit": limit,
+                    "start_key": start_key,
+                    **kwargs,
+                },
+            )
+            manifests = [
+                Manifest(self.accqsure, **manifest)
+                for manifest in resp.get("results")
+            ]
+            return manifests, resp.get("last_key")
 
     async def create(
         self,
@@ -85,11 +106,20 @@ class Manifest:
 
     @property
     def reference_document_id(self) -> str:
-        return self._reference_document.get("entity_id")
+
+        return (
+            self._reference_document.get("entity_id")
+            if self._reference_document
+            else "UNKNOWN"
+        )
 
     @property
     def reference_document_doc_id(self) -> str:
-        return self._reference_document.get("doc_id")
+        return (
+            self._reference_document.get("doc_id")
+            if self._reference_document
+            else "UNKNOWN"
+        )
 
     def __str__(self):
         return json.dumps({k: v for k, v in self._entity.items()})
@@ -125,6 +155,11 @@ class Manifest:
         return self
 
     async def get_reference_contents(self):
+        if not self._reference_document:
+            raise SpecificationError(
+                "reference_document",
+                "Reference document not found for manifest",
+            )
         document_id = self._reference_document.get("entity_id")
         content_id = self._reference_document.get("content_id")
         if not content_id:
@@ -138,6 +173,11 @@ class Manifest:
         return resp
 
     async def get_reference_content_item(self, name):
+        if not self._reference_document:
+            raise SpecificationError(
+                "reference_document",
+                "Reference document not found for manifest",
+            )
         document_id = self._reference_document.get("entity_id")
         content_id = self._reference_document.get("content_id")
         if not content_id:

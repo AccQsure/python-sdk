@@ -21,5 +21,5 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logger.propagate = False
 
-__version__ = "0.2.4"
+__version__ = "0.2.5"
 __all__ = ("AccQsure",)

@@ -6,6 +6,7 @@ import traceback
 import math
 import asyncio
 import io
+from pathlib import Path
 from importlib.metadata import version
 
 from accqsure.auth import Auth
@@ -15,6 +16,7 @@ from accqsure.documents import Documents
 from accqsure.manifests import Manifests
 from accqsure.inspections import Inspections
 from accqsure.plots import Plots
+from accqsure.util import Utilities
 
 from accqsure.exceptions import (
     ApiError,
@@ -32,19 +34,23 @@ class AccQsure(object):
     def __init__(self, **kwargs):
         self._version = version("accqsure")
         config_dir = (
-            os.path.expanduser(kwargs.get("config_dir"))
+            Path(kwargs.get("config_dir")).expanduser().resolve()
             if kwargs.get("config_dir")
-            else os.path.expanduser(
+            else Path(
                 os.environ.get("ACCQSURE_CONFIG_DIR") or DEFAULT_CONFIG_DIR
             )
+            .expanduser()
+            .resolve()
         )
         credentials_file = (
-            os.path.expanduser(kwargs.get("credentials_file"))
+            Path(kwargs.get("credentials_file")).expanduser().resolve()
             if kwargs.get("credentials_file")
-            else os.path.expanduser(
+            else Path(
                 os.environ.get("ACCQSURE_CREDENTIALS_FILE")
                 or f"{config_dir}/{DEFAULT_CREDENTIAL_FILE_NAME}"
             )
+            .expanduser()
+            .resolve()
         )
         self.auth = Auth(
             config_dir=config_dir,
@@ -57,6 +63,7 @@ class AccQsure(object):
         self.manifests = Manifests(self)
         self.inspections = Inspections(self)
         self.plots = Plots(self)
+        self.util = Utilities()
 
     @property
     def __version__(self) -> str:
@@ -275,6 +282,43 @@ class AccQsure(object):
                     data = await response.text()
                     logging.error("Response error: %s", data)
                     raise e
+
+    async def _query_all(
+        self, path, method, params=None, data=None, headers=None
+    ):
+        all_results = []
+        params = params or {}  # Ensure params is a dict
+        params["limit"] = params.get(
+            "limit", 100
+        )  # Set default limit if not provided
+        cursor = None
+
+        while True:
+            # Update params with the current cursor (start_key)
+            if cursor:
+                params["start_key"] = cursor
+            else:
+                params.pop("start_key", None)  # Remove start_key if no cursor
+
+            # Make the API call
+            resp = await self._query(
+                path=path,
+                method=method,
+                params=params,
+                data=data,
+                headers=headers,
+            )
+
+            # Extract results and cursor
+            results = resp.get("results", [])
+            all_results.extend(results)
+            cursor = resp.get("last_key")
+
+            # Break if no more cursor
+            if not cursor:
+                break
+
+        return all_results
 
     async def _poll_task(self, task_id, timeout=300):
         MAX_TIMEOUT = 24 * 60 * 60

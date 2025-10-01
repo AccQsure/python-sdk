@@ -52,7 +52,7 @@ def list(config, document_type_id):
             document_type_id=document_type_id
         )
     )
-    print(documents)
+    # print(documents)
     for doc in documents:
         data.append(
             [

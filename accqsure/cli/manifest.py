@@ -35,7 +35,11 @@ def list(config, document_type_id):
             [
                 manifest.id,
                 manifest.name,
-                manifest._reference_document.get("name"),
+                (
+                    manifest._reference_document.get("name")
+                    if manifest._reference_document
+                    else "UNKNOWN"
+                ),
                 manifest.reference_document_id,
             ]
         )
