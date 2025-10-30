@@ -8,8 +8,10 @@ from accqsure.cli import cli, pass_config
 
 class FILE_FORMATS(str, Enum):
     DOCX = "docx"
+    DOCM = "docm"
     TEXT = "text"
     XLSX = "xlsx"
+    XLSM = "xlsm"
     CSV = "csv"
     PDF = "pdf"
 
@@ -17,6 +19,8 @@ class FILE_FORMATS(str, Enum):
 DOCUMENT_TYPES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": FILE_FORMATS.DOCX,
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": FILE_FORMATS.XLSX,
+    "application/vnd.ms-excel.sheet.macroenabled.12": FILE_FORMATS.XLSX,
+    "application/vnd.ms-word.document.macroenabled.12": FILE_FORMATS.DOCM,
     "text/plain": FILE_FORMATS.TEXT,
     "application/json": FILE_FORMATS.TEXT,
     "text/csv": FILE_FORMATS.CSV,
