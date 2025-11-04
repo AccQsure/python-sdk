@@ -16,6 +16,7 @@ from accqsure.documents import Documents
 from accqsure.manifests import Manifests
 from accqsure.inspections import Inspections
 from accqsure.plots import Plots
+from accqsure.charts import Charts
 from accqsure.util import Utilities
 
 from accqsure.exceptions import (
@@ -63,6 +64,7 @@ class AccQsure(object):
         self.manifests = Manifests(self)
         self.inspections = Inspections(self)
         self.plots = Plots(self)
+        self.charts = Charts(self)
         self.util = Utilities()
 
     @property
