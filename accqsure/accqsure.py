@@ -61,17 +61,17 @@ class AccQsure(object):
 
     def __post_init__(self, **kwargs):
         self.config_dir = (
-            Path(kwargs.get("config_dir")).expanduser().resolve()
-            if kwargs.get("config_dir")
+            Path(self.config_dir).expanduser().resolve()
+            if self.config_dir
             else Path(
                 os.environ.get("ACCQSURE_CONFIG_DIR") or DEFAULT_CONFIG_DIR
             )
             .expanduser()
             .resolve()
         )
-        credentials_file = (
-            Path(kwargs.get("credentials_file")).expanduser().resolve()
-            if kwargs.get("credentials_file")
+        self.credentials_file = (
+            Path(self.credentials_file).expanduser().resolve()
+            if self.credentials_file
             else Path(
                 os.environ.get("ACCQSURE_CREDENTIALS_FILE")
                 or f"{self.config_dir}/{DEFAULT_CREDENTIAL_FILE_NAME}"
@@ -81,8 +81,8 @@ class AccQsure(object):
         )
         self.auth = Auth(
             config_dir=self.config_dir,
-            credentials_file=credentials_file,
-            key=kwargs.get("key", None),
+            credentials_file=self.credentials_file,
+            key=self.key,
         )
         self.text = Text(self)
         self.document_types = DocumentTypes(self)
