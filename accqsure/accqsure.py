@@ -1,4 +1,6 @@
 from dataclasses import dataclass, field
+from typing import Optional
+from os import PathLike
 import json
 import os
 import aiohttp
@@ -35,6 +37,9 @@ DEFAULT_CREDENTIAL_FILE_NAME = "credentials.json"
 @dataclass
 class AccQsure(object):
     _version = version("accqsure")
+    config_dir: Optional[PathLike[str]] = None
+    credentials_file: Optional[PathLike[str]] = None
+    key: Optional[str] = None
 
     auth: Auth = field(init=False, repr=False, compare=False, hash=False)
     text: Text = field(init=False, repr=False, compare=False, hash=False)
@@ -55,7 +60,7 @@ class AccQsure(object):
     util: Utilities = field(init=False, repr=False, compare=False, hash=False)
 
     def __post_init__(self, **kwargs):
-        config_dir = (
+        self.config_dir = (
             Path(kwargs.get("config_dir")).expanduser().resolve()
             if kwargs.get("config_dir")
             else Path(
@@ -69,13 +74,13 @@ class AccQsure(object):
             if kwargs.get("credentials_file")
             else Path(
                 os.environ.get("ACCQSURE_CREDENTIALS_FILE")
-                or f"{config_dir}/{DEFAULT_CREDENTIAL_FILE_NAME}"
+                or f"{self.config_dir}/{DEFAULT_CREDENTIAL_FILE_NAME}"
             )
             .expanduser()
             .resolve()
         )
         self.auth = Auth(
-            config_dir=config_dir,
+            config_dir=self.config_dir,
             credentials_file=credentials_file,
             key=kwargs.get("key", None),
         )
