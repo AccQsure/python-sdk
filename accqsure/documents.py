@@ -1,18 +1,22 @@
-import json
+from __future__ import annotations
+from dataclasses import dataclass, field, fields
 import logging
+from typing import Optional, Any, TYPE_CHECKING
 
 from accqsure.exceptions import SpecificationError
-from accqsure.manifests import Manifest
+
+if TYPE_CHECKING:
+    from accqsure import AccQsure
 
 
-class Documents(object):
-    def __init__(self, accqsure):
-        self.accqsure = accqsure
+@dataclass
+class Documents:
+    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
 
     async def get(self, id_, **kwargs):
 
         resp = await self.accqsure._query(f"/document/{id_}", "GET", kwargs)
-        return Document(self.accqsure, **resp)
+        return Document.from_api(self.accqsure, resp)
 
     async def list(self, document_type_id, **kwargs):
         resp = await self.accqsure._query(
@@ -22,7 +26,7 @@ class Documents(object):
         )
 
         documents = [
-            Document(self.accqsure, **document)
+            Document.from_api(self.accqsure, document)
             for document in resp.get("results")
         ]
         return documents, resp.get("last_key")
@@ -47,25 +51,10 @@ class Documents(object):
         logging.info("Creating Document %s", name)
 
         resp = await self.accqsure._query("/document", "POST", None, payload)
-        document = Document(self.accqsure, **resp)
+        document = Document.from_api(self.accqsure, resp)
         logging.info("Created Document %s with id %s", name, document.id)
 
         return document
-
-    # async def markdown_convert(self, title, type, base64_contents, **kwargs):
-    #     resp = await self.accqsure._query(
-    #         f"/document/convert",
-    #         "POST",
-    #         None,
-    #         {
-    #             **kwargs,
-    #             **dict(
-    #                 title=title, type=type, base64_contents=base64_contents
-    #             ),
-    #         },
-    #     )
-    #     result = await self.accqsure._poll_task(resp.get("task_id"))
-    #     return result.get("contents")
 
     async def remove(self, id_, **kwargs):
 
@@ -74,57 +63,58 @@ class Documents(object):
         )
 
 
+@dataclass
 class Document:
-    def __init__(self, accqsure, **kwargs):
-        self.accqsure = accqsure
-        self._entity = kwargs
-        self._id = self._entity.get("entity_id")
-        self._document_type_id = self._entity.get("document_type_id")
-        self._name = self._entity.get("name")
-        self._doc_id = self._entity.get("doc_id")
-        self._content_id = self._entity.get("content_id")
+    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
+    id: str
+    name: str
+    status: str
+    doc_id: str
+    created_at: str
+    updated_at: str
+    document_type_id: Optional[str] = field(default=None)
+    content_id: Optional[str] = field(default=None)
 
-    @property
-    def id(self) -> str:
-        return self._id
-
-    @property
-    def document_type_id(self) -> str:
-        return self._document_type_id
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def doc_id(self) -> str:
-        return self._doc_id
-
-    def __str__(self):
-        return json.dumps({k: v for k, v in self._entity.items()})
-
-    def __repr__(self):
-        return f"Document( accqsure , **{self._entity.__repr__()})"
-
-    def __bool__(self):
-        return bool(self._id)
+    @classmethod
+    def from_api(
+        cls, accqsure: "AccQsure", data: dict[str, Any]
+    ) -> "Document":
+        if not data:
+            return None
+        return cls(
+            accqsure=accqsure,
+            id=data.get("entity_id"),
+            name=data.get("name"),
+            status=data.get("status"),
+            document_type_id=data.get("document_type_id"),
+            doc_id=data.get("doc_id"),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+            content_id=data.get("content_id"),
+        )
 
     async def remove(self):
 
         await self.accqsure._query(
-            f"/document/{self._id}",
+            f"/document/{self.id}",
             "DELETE",
         )
 
     async def rename(self, name):
 
         resp = await self.accqsure._query(
-            f"/document/{self._id}",
+            f"/document/{self.id}",
             "PUT",
             None,
             dict(name=name),
         )
-        self.__init__(self.accqsure, **resp)
+        exclude = ["id", "accqsure"]
+
+        for f in fields(self.__class__):
+            if (
+                f.name not in exclude and f.init and resp.get(f.name)
+            ):  # Only update init args (skip derived like sections/waypoints)
+                setattr(self, f.name, resp.get(f.name))
         return self
 
     async def refresh(self):
@@ -133,29 +123,35 @@ class Document:
             f"/document/{self.id}",
             "GET",
         )
-        self.__init__(self.accqsure, **resp)
+        exclude = ["id", "accqsure"]
+
+        for f in fields(self.__class__):
+            if (
+                f.name not in exclude and f.init and resp.get(f.name)
+            ):  # Only update init args (skip derived like sections/waypoints)
+                setattr(self, f.name, resp.get(f.name))
         return self
 
     async def get_contents(self):
-        if not self._content_id:
+        if not self.content_id:
             raise SpecificationError(
                 "content_id", "Content not uploaded for document"
             )
 
         resp = await self.accqsure._query(
-            f"/document/{self.id}/asset/{self._content_id}/manifest.json",
+            f"/document/{self.id}/asset/{self.content_id}/manifest.json",
             "GET",
         )
         return resp
 
     async def get_content_item(self, name):
-        if not self._content_id:
+        if not self.content_id:
             raise SpecificationError(
                 "content_id", "Content not uploaded for document"
             )
 
         return await self.accqsure._query(
-            f"/document/{self.id}/asset/{self._content_id}/{name}",
+            f"/document/{self.id}/asset/{self.content_id}/{name}",
             "GET",
         )
 
@@ -169,20 +165,11 @@ class Document:
         )
 
     async def _set_content_item(self, name, file_name, mime_type, contents):
-        if not self._content_id:
+        if not self.content_id:
             raise SpecificationError(
                 "content_id", "Content not finalized for inspection"
             )
 
         return await self._set_asset(
-            f"{self._content_id}/{name}", file_name, mime_type, contents
+            f"{self.content_id}/{name}", file_name, mime_type, contents
         )
-
-    async def list_manifests(self):
-
-        resp = await self.accqsure._query(
-            f"/document/{self.id}/manifest",
-            "GET",
-        )
-        manifests = [Manifest(self.accqsure, **manifest) for manifest in resp]
-        return manifests

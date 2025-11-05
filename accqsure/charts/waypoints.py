@@ -1,18 +1,23 @@
-import json
+from __future__ import annotations
+from dataclasses import dataclass, field, fields
 import logging
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from accqsure import AccQsure
 
 
+@dataclass
 class ChartWaypoints(object):
-    def __init__(self, accqsure, chart_id):
-        self.accqsure = accqsure
-        self.chart_id = chart_id
+    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
+    chart_id: str
 
     async def get(self, id_, **kwargs):
 
         resp = await self.accqsure._query(
             f"/chart/{self.chart_id}/waypoint/{id_}", "GET", kwargs
         )
-        return ChartWaypoint(self.accqsure, self.chart_id, **resp)
+        return ChartWaypoint.from_api(self.accqsure, self.chart_id, **resp)
 
     async def list(self, limit=50, start_key=None, **kwargs):
 
@@ -22,7 +27,9 @@ class ChartWaypoints(object):
             {"limit": limit, "start_key": start_key, **kwargs},
         )
         chart_waypoints = [
-            ChartWaypoint(self.accqsure, self.chart_id, **chart_waypoint)
+            ChartWaypoint.from_api(
+                self.accqsure, self.chart_id, **chart_waypoint
+            )
             for chart_waypoint in resp.get("results")
         ]
         return chart_waypoints, resp.get("last_key")
@@ -43,7 +50,9 @@ class ChartWaypoints(object):
         resp = await self.accqsure._query(
             f"/chart/{self.chart_id}/waypoint", "POST", None, payload
         )
-        chart_waypoint = ChartWaypoint(self.accqsure, **resp)
+        chart_waypoint = ChartWaypoint.from_api(
+            self.accqsure, self.chart_id, **resp
+        )
         logging.info(
             "Created Chart Waypoint %s with id %s", name, chart_waypoint.id
         )
@@ -57,30 +66,29 @@ class ChartWaypoints(object):
         )
 
 
+@dataclass
 class ChartWaypoint:
-    def __init__(self, accqsure, chart_id, **kwargs):
-        self.accqsure = accqsure
-        self.chart_id = chart_id
-        self._entity = kwargs
-        self._id = self._entity.get("entity_id")
-        self._name = self._entity.get("name")
+    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
+    chart_id: str
+    id: str
+    name: str
+    created_at: str
+    updated_at: str
 
-    @property
-    def id(self) -> str:
-        return self._id
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    def __str__(self):
-        return json.dumps({k: v for k, v in self._entity.items()})
-
-    def __repr__(self):
-        return f"ChartWaypoint( accqsure , **{self._entity.__repr__()})"
-
-    def __bool__(self):
-        return bool(self._id)
+    @classmethod
+    def from_api(
+        cls, accqsure: "AccQsure", chart_id: str, data: dict[str, Any]
+    ) -> "ChartWaypoint":
+        if not data:
+            return None
+        return cls(
+            accqsure=accqsure,
+            chart_id=chart_id,
+            id=data.get("entity_id"),
+            name=data.get("name"),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+        )
 
     async def refresh(self):
 
@@ -88,5 +96,12 @@ class ChartWaypoint:
             f"/chart/{self.chart_id}/waypoint/{self.id}",
             "GET",
         )
-        self.__init__(self.accqsure, **resp)
+        exclude = ["id", "chart_id", "accqsure"]
+
+        for f in fields(self.__class__):
+            if (
+                f.name not in exclude and f.init and resp.get(f.name)
+            ):  # Only update init args (skip derived like sections/waypoints)
+                setattr(self, f.name, resp.get(f.name))
+
         return self

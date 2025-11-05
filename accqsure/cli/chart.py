@@ -37,11 +37,15 @@ def list(config, document_type_id):
                 chart.id,
                 chart.name,
                 (
-                    chart._reference_document.get("name")
-                    if chart._reference_document
+                    chart.reference_document.name
+                    if chart.reference_document
                     else "UNKNOWN"
                 ),
-                chart.reference_document_id,
+                (
+                    chart.reference_document.id
+                    if chart.reference_document
+                    else "UNKNOWN"
+                ),
             ]
         )
     for row in data:

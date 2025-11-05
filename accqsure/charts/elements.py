@@ -1,17 +1,18 @@
-import json
+from __future__ import annotations
+from dataclasses import dataclass, field, fields
 import logging
+from typing import Optional, Any, List, Dict, TYPE_CHECKING
+from accqsure.charts.waypoints import ChartWaypoint
+
+if TYPE_CHECKING:
+    from accqsure import AccQsure
 
 
-class ChartElements(object):
-    def __init__(
-        self,
-        accqsure,
-        chart_id,
-        chart_section_id,
-    ):
-        self.accqsure = accqsure
-        self.chart_id = chart_id
-        self.section_id = chart_section_id
+@dataclass
+class ChartElements:
+    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
+    chart_id: str
+    section_id: str
 
     async def get(self, id_, **kwargs):
 
@@ -46,6 +47,7 @@ class ChartElements(object):
         description,
         prompt,
         for_each,
+        waypoints=None,
         metadata=None,
         **kwargs,
     ):
@@ -56,6 +58,7 @@ class ChartElements(object):
             description=description,
             prompt=prompt,
             for_each=for_each,
+            waypoints=waypoints,
             metadata=metadata,
             **kwargs,
         )
@@ -82,46 +85,53 @@ class ChartElements(object):
         )
 
 
+@dataclass
 class ChartElement:
-    def __init__(self, accqsure, chart_id, chart_section_id, **kwargs):
-        self.accqsure = accqsure
-        self.chart_id = chart_id
-        self.section_id = chart_section_id
-        self._entity = kwargs
-        self._id = self._entity.get("entity_id")
-        self._order = self._entity.get("order")
-        self._type = self._entity.get("type")
-        self._status = self._entity.get("status")
-        self._content = self._entity.get("content")
+    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
+    chart_id: str
+    section_id: str
+    id: str
+    created_at: str
+    updated_at: str
+    order: int
+    type: str
+    description: str
+    prompt: str
+    for_each: bool
+    metadata: Optional[Dict[str, Any]] = field(default=None)
 
-    @property
-    def id(self) -> str:
-        return self._id
+    waypoints: Optional[List[ChartWaypoint]] = field(default=None)
 
-    @property
-    def order(self) -> int:
-        return self._order
-
-    @property
-    def type(self) -> str:
-        return self._type
-
-    @property
-    def status(self) -> str:
-        return self._status
-
-    @property
-    def content(self) -> str:
-        return self._content
-
-    def __str__(self):
-        return json.dumps({k: v for k, v in self._entity.items()})
-
-    def __repr__(self):
-        return f"ChartElement( accqsure , **{self._entity.__repr__()})"
-
-    def __bool__(self):
-        return bool(self._id)
+    @classmethod
+    def from_api(
+        cls,
+        accqsure: "AccQsure",
+        chart_id: str,
+        section_id: str,
+        data: dict[str, Any],
+    ) -> "ChartElement":
+        if not data:
+            return None
+        return cls(
+            accqsure=accqsure,
+            chart_id=chart_id,
+            section_id=section_id,
+            id=data.get("entity_id"),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+            order=data.get("order"),
+            type=data.get("type"),
+            description=data.get("description"),
+            prompt=data.get("prompt"),
+            for_each=data.get("for_each"),
+            metadata=data.get("metadata"),
+            waypoints=[
+                ChartWaypoint.from_api(
+                    accqsure=accqsure, chart_id=chart_id, data=waypoint
+                )
+                for waypoint in data.get("waypoints") or []
+            ],
+        )
 
     async def refresh(self):
 
@@ -129,5 +139,11 @@ class ChartElement:
             f"/chart/{self.chart_id}/section/{self.section_id}/element/{self.id}",
             "GET",
         )
-        self.__init__(self.accqsure, **resp)
+        exclude = ["id", "chart_id", "section_id", "accqsure"]
+
+        for f in fields(self.__class__):
+            if (
+                f.name not in exclude and f.init and resp.get(f.name)
+            ):  # Only update init args (skip derived like sections/waypoints)
+                setattr(self, f.name, resp.get(f.name))
         return self

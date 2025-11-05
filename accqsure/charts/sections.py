@@ -1,19 +1,26 @@
-import json
+from __future__ import annotations
+from dataclasses import dataclass, field, fields
 import logging
+from typing import Optional, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from accqsure import AccQsure
+
+
 from .elements import ChartElements
 
 
+@dataclass
 class ChartSections(object):
-    def __init__(self, accqsure, chart_id):
-        self.accqsure = accqsure
-        self.chart_id = chart_id
+    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
+    chart_id: str
 
     async def get(self, id_, **kwargs):
 
         resp = await self.accqsure._query(
             f"/chart/{self.chart_id}/section/{id_}", "GET", kwargs
         )
-        return ChartSection(self.accqsure, self.chart_id, **resp)
+        return ChartSection.from_api(self.accqsure, self.chart_id, resp)
 
     async def list(self, limit=50, start_key=None, **kwargs):
 
@@ -23,7 +30,7 @@ class ChartSections(object):
             {"limit": limit, "start_key": start_key, **kwargs},
         )
         chart_sections = [
-            ChartSection(self.accqsure, self.chart_id, **chart_section)
+            ChartSection.from_api(self.accqsure, self.chart_id, chart_section)
             for chart_section in resp.get("results")
         ]
         return chart_sections, resp.get("last_key")
@@ -50,7 +57,9 @@ class ChartSections(object):
         resp = await self.accqsure._query(
             f"/chart/{self.chart_id}/section", "POST", None, payload
         )
-        chart_section = ChartSection(self.accqsure, **resp)
+        chart_section = ChartSection.from_api(
+            self.accqsure, self.chart_id, resp
+        )
         logging.info(
             "Created Chart Section %s with id %s", order, chart_section.id
         )
@@ -64,46 +73,40 @@ class ChartSections(object):
         )
 
 
+@dataclass
 class ChartSection:
-    def __init__(self, accqsure, chart_id, **kwargs):
-        self.accqsure = accqsure
-        self.chart_id = chart_id
-        self._entity = kwargs
-        self._id = self._entity.get("entity_id")
-        self._heading = self._entity.get("heading")
-        self._number = self._entity.get("number")
-        self._style = self._entity.get("style")
-        self._order = self._entity.get("order")
-        self.elements = ChartElements(self.accqsure, self.chart_id, self._id)
+    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
+    chart_id: str
+    id: str
+    created_at: str
+    updated_at: str
+    heading: str
+    style: str
+    order: int
+    number: Optional[str] = field(default=None)
 
-    @property
-    def id(self) -> str:
-        return self._id
+    elements: ChartElements = field(init=False)
 
-    @property
-    def heading(self) -> str:
-        return self._heading
+    def __post_init__(self):
+        self.elements = ChartElements(self.accqsure, self.chart_id, self.id)
 
-    @property
-    def number(self) -> str:
-        return self._number
-
-    @property
-    def style(self) -> str:
-        return self._style
-
-    @property
-    def order(self) -> int:
-        return self._order
-
-    def __str__(self):
-        return json.dumps({k: v for k, v in self._entity.items()})
-
-    def __repr__(self):
-        return f"ChartSection( accqsure , **{self._entity.__repr__()})"
-
-    def __bool__(self):
-        return bool(self._id)
+    @classmethod
+    def from_api(
+        cls, accqsure: "AccQsure", chart_id: str, data: dict[str, Any]
+    ) -> "ChartSection":
+        if not data:
+            return None
+        return cls(
+            accqsure=accqsure,
+            chart_id=chart_id,
+            id=data.get("entity_id"),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+            heading=data.get("heading"),
+            number=data.get("number"),
+            style=data.get("style"),
+            order=data.get("order"),
+        )
 
     async def refresh(self):
 
@@ -111,5 +114,12 @@ class ChartSection:
             f"/chart/{self.chart_id}/section/{self.id}",
             "GET",
         )
-        self.__init__(self.accqsure, **resp)
+        exclude = ["id", "chart_id", "accqsure"]
+
+        for f in fields(self.__class__):
+            if (
+                f.name not in exclude and f.init and resp.get(f.name)
+            ):  # Only update init args (skip derived like sections/waypoints)
+                setattr(self, f.name, resp.get(f.name))
+
         return self

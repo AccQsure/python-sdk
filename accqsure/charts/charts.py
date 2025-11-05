@@ -1,18 +1,26 @@
-import json
+from __future__ import annotations
+from dataclasses import dataclass, field, fields
+from typing import Optional, Any, TYPE_CHECKING
 import logging
+
 from accqsure.exceptions import SpecificationError
+from accqsure.documents import Document
 from .sections import ChartSections
 from .waypoints import ChartWaypoints
 
 
-class Charts(object):
-    def __init__(self, accqsure):
-        self.accqsure = accqsure
+if TYPE_CHECKING:
+    from accqsure import AccQsure
+
+
+@dataclass
+class Charts:
+    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
 
     async def get(self, id_, **kwargs):
 
         resp = await self.accqsure._query(f"/chart/{id_}", "GET", kwargs)
-        return Chart(self.accqsure, **resp)
+        return Chart.from_api(self.accqsure, resp)
 
     async def list(
         self,
@@ -32,7 +40,8 @@ class Charts(object):
                 },
             )
             charts = [
-                Chart(self.accqsure, **chart) for chart in resp.get("results")
+                Chart.from_api(self.accqsure, chart)
+                for chart in resp.get("results")
             ]
             return charts, resp.get("last_key")
         else:
@@ -47,7 +56,8 @@ class Charts(object):
                 },
             )
             charts = [
-                Chart(self.accqsure, **chart) for chart in resp.get("results")
+                Chart.from_api(self.accqsure, chart)
+                for chart in resp.get("results")
             ]
             return charts, resp.get("last_key")
 
@@ -69,7 +79,7 @@ class Charts(object):
         logging.info("Creating Chart %s", name)
 
         resp = await self.accqsure._query("/chart", "POST", None, payload)
-        chart = Chart(self.accqsure, **resp)
+        chart = Chart.from_api(self.accqsure, resp)
         logging.info("Created Chart %s with id %s", name, chart.id)
 
         return chart
@@ -79,71 +89,56 @@ class Charts(object):
         await self.accqsure._query(f"/chart/{id_}", "DELETE", {**kwargs})
 
 
+@dataclass
 class Chart:
-    def __init__(self, accqsure, **kwargs):
-        self.accqsure = accqsure
-        self._entity = kwargs
-        self._id = self._entity.get("entity_id")
-        self._name = self._entity.get("name")
-        self._document_type_id = self._entity.get("document_type_id")
-        self._status = self._entity.get("status")
-        self._reference_document = self._entity.get("reference_document")
-        self.sections = ChartSections(self.accqsure, self._id)
-        self.waypoints = ChartWaypoints(self.accqsure, self._id)
+    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
+    id: str
+    name: str
+    document_type_id: str
+    status: str
+    created_at: str
+    updated_at: str
+    reference_document: Optional[Document] = field(default=None)
+    approved_by: Optional[str] = field(default=None)
+    last_modified_by: Optional[str] = field(default=None)
 
-    @property
-    def id(self) -> str:
-        return self._id
+    sections: ChartSections = field(init=False)
+    waypoints: ChartWaypoints = field(init=False)
 
-    @property
-    def document_type_id(self) -> str:
-        return self._document_type_id
+    def __post_init__(self):
+        self.sections = ChartSections(self.accqsure, self.id)
+        self.waypoints = ChartWaypoints(self.accqsure, self.id)
 
-    @property
-    def status(self) -> str:
-        return self._status
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def reference_document_id(self) -> str:
-
-        return (
-            self._reference_document.get("entity_id")
-            if self._reference_document
-            else "UNKNOWN"
+    @classmethod
+    def from_api(cls, accqsure: "AccQsure", data: dict[str, Any]) -> "Chart":
+        if not data:
+            return None
+        return cls(
+            accqsure=accqsure,
+            id=data.get("entity_id"),
+            name=data.get("name"),
+            status=data.get("status"),
+            document_type_id=data.get("document_type_id"),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+            reference_document=Document.from_api(
+                accqsure=accqsure, data=data.get("reference_document")
+            ),
+            approved_by=data.get("approved_by"),
+            last_modified_by=data.get("last_modified_by"),
         )
-
-    @property
-    def reference_document_doc_id(self) -> str:
-        return (
-            self._reference_document.get("doc_id")
-            if self._reference_document
-            else "UNKNOWN"
-        )
-
-    def __str__(self):
-        return json.dumps({k: v for k, v in self._entity.items()})
-
-    def __repr__(self):
-        return f"Chart( accqsure , **{self._entity.__repr__()})"
-
-    def __bool__(self):
-        return bool(self._id)
 
     async def remove(self):
 
         await self.accqsure._query(
-            f"/chart/{self._id}",
+            f"/chart/{self.id}",
             "DELETE",
         )
 
     async def rename(self, name):
 
         resp = await self.accqsure._query(
-            f"/chart/{self._id}",
+            f"/chart/{self.id}",
             "PUT",
             None,
             dict(name=name),
@@ -157,7 +152,13 @@ class Chart:
             f"/chart/{self.id}",
             "GET",
         )
-        self.__init__(self.accqsure, **resp)
+        exclude = ["id", "accqsure"]
+
+        for f in fields(self.__class__):
+            if (
+                f.name not in exclude and f.init and resp.get(f.name)
+            ):  # Only update init args (skip derived like sections/waypoints)
+                setattr(self, f.name, resp.get(f.name))
         return self
 
     async def _set_asset(self, path, file_name, mime_type, contents):
@@ -170,13 +171,13 @@ class Chart:
         )
 
     async def get_reference_contents(self):
-        if not self._reference_document:
+        if not self.reference_document:
             raise SpecificationError(
                 "reference_document",
-                "Reference document not found for manifest",
+                "Reference document not found for chart",
             )
-        document_id = self._reference_document.get("entity_id")
-        content_id = self._reference_document.get("content_id")
+        document_id = self.reference_document.id
+        content_id = self.reference_document.content_id
         if not content_id:
             raise SpecificationError(
                 "content_id", "Content not uploaded for document"
@@ -188,13 +189,13 @@ class Chart:
         return resp
 
     async def get_reference_content_item(self, name):
-        if not self._reference_document:
+        if not self.reference_document:
             raise SpecificationError(
                 "reference_document",
-                "Reference document not found for manifest",
+                "Reference document not found for chart",
             )
-        document_id = self._reference_document.get("entity_id")
-        content_id = self._reference_document.get("content_id")
+        document_id = self.reference_document.id
+        content_id = self.reference_document.content_id
         if not content_id:
             raise SpecificationError(
                 "content_id", "Content not uploaded for document"
