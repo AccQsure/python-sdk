@@ -17,7 +17,7 @@ class ChartWaypoints(object):
         resp = await self.accqsure._query(
             f"/chart/{self.chart_id}/waypoint/{id_}", "GET", kwargs
         )
-        return ChartWaypoint.from_api(self.accqsure, self.chart_id, **resp)
+        return ChartWaypoint.from_api(self.accqsure, self.chart_id, resp)
 
     async def list(self, limit=50, start_key=None, **kwargs):
 
@@ -28,7 +28,7 @@ class ChartWaypoints(object):
         )
         chart_waypoints = [
             ChartWaypoint.from_api(
-                self.accqsure, self.chart_id, **chart_waypoint
+                self.accqsure, self.chart_id, chart_waypoint
             )
             for chart_waypoint in resp.get("results")
         ]
@@ -51,7 +51,7 @@ class ChartWaypoints(object):
             f"/chart/{self.chart_id}/waypoint", "POST", None, payload
         )
         chart_waypoint = ChartWaypoint.from_api(
-            self.accqsure, self.chart_id, **resp
+            self.accqsure, self.chart_id, resp
         )
         logging.info(
             "Created Chart Waypoint %s with id %s", name, chart_waypoint.id

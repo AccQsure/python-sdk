@@ -21,8 +21,8 @@ class ChartElements:
             "GET",
             kwargs,
         )
-        return ChartElement(
-            self.accqsure, self.chart_id, self.section_id, **resp
+        return ChartElement.from_api(
+            self.accqsure, self.chart_id, self.section_id, resp
         )
 
     async def list(self, limit=50, start_key=None, **kwargs):
@@ -33,8 +33,8 @@ class ChartElements:
             {"limit": limit, "start_key": start_key, **kwargs},
         )
         chart_elements = [
-            ChartElement(
-                self.accqsure, self.chart_id, self.section_id, **chart_element
+            ChartElement.from_api(
+                self.accqsure, self.chart_id, self.section_id, chart_element
             )
             for chart_element in resp.get("results")
         ]
@@ -71,7 +71,9 @@ class ChartElements:
             None,
             payload,
         )
-        chart_element = ChartElement(self.accqsure, **resp)
+        chart_element = ChartElement.from_api(
+            self.accqsure, self.chart_id, self.section_id, resp
+        )
         logging.info("Created Chart %s with id %s", order, chart_element.id)
 
         return chart_element
