@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 import json
 import os
 import aiohttp
@@ -31,9 +32,29 @@ DEFAULT_CONFIG_DIR = "~/.accqsure"
 DEFAULT_CREDENTIAL_FILE_NAME = "credentials.json"
 
 
+@dataclass
 class AccQsure(object):
-    def __init__(self, **kwargs):
-        self._version = version("accqsure")
+    _version = version("accqsure")
+
+    auth: Auth = field(init=False, repr=False, compare=False, hash=False)
+    text: Text = field(init=False, repr=False, compare=False, hash=False)
+    document_types: DocumentTypes = field(
+        init=False, repr=False, compare=False, hash=False
+    )
+    documents: Documents = field(
+        init=False, repr=False, compare=False, hash=False
+    )
+    manifests: Manifests = field(
+        init=False, repr=False, compare=False, hash=False
+    )
+    inspections: Inspections = field(
+        init=False, repr=False, compare=False, hash=False
+    )
+    plots: Plots = field(init=False, repr=False, compare=False, hash=False)
+    charts: Charts = field(init=False, repr=False, compare=False, hash=False)
+    util: Utilities = field(init=False, repr=False, compare=False, hash=False)
+
+    def __post_init__(self, **kwargs):
         config_dir = (
             Path(kwargs.get("config_dir")).expanduser().resolve()
             if kwargs.get("config_dir")

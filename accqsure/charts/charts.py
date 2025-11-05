@@ -102,8 +102,12 @@ class Chart:
     approved_by: Optional[str] = field(default=None)
     last_modified_by: Optional[str] = field(default=None)
 
-    sections: ChartSections = field(init=False)
-    waypoints: ChartWaypoints = field(init=False)
+    sections: ChartSections = field(
+        init=False, repr=False, compare=False, hash=False
+    )
+    waypoints: ChartWaypoints = field(
+        init=False, repr=False, compare=False, hash=False
+    )
 
     def __post_init__(self):
         self.sections = ChartSections(self.accqsure, self.id)

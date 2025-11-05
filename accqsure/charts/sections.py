@@ -85,7 +85,9 @@ class ChartSection:
     order: int
     number: Optional[str] = field(default=None)
 
-    elements: ChartElements = field(init=False)
+    elements: ChartElements = field(
+        init=False, repr=False, compare=False, hash=False
+    )
 
     def __post_init__(self):
         self.elements = ChartElements(self.accqsure, self.chart_id, self.id)
