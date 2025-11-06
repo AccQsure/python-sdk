@@ -88,9 +88,6 @@ class ChartSection:
         init=False, repr=False, compare=False, hash=False
     )
 
-    def __post_init__(self):
-        self.elements = ChartElements(self.accqsure, self.chart_id, self.id)
-
     @classmethod
     def from_api(
         cls, accqsure: "AccQsure", chart_id: str, data: dict[str, Any]
@@ -108,6 +105,9 @@ class ChartSection:
             order=data.get("order"),
         )
         entity.accqsure = accqsure
+        entity.elements = ChartElements(
+            entity.accqsure, entity.chart_id, entity.id
+        )
         return entity
 
     @property
