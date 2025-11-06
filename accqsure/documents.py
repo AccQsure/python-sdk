@@ -9,9 +9,9 @@ if TYPE_CHECKING:
     from accqsure import AccQsure
 
 
-@dataclass
 class Documents:
-    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
+    def __init__(self, accqsure):
+        self.accqsure = accqsure
 
     async def get(self, id_, **kwargs):
 
@@ -65,7 +65,6 @@ class Documents:
 
 @dataclass
 class Document:
-    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
     id: str
     name: str
     status: str
@@ -81,8 +80,7 @@ class Document:
     ) -> "Document":
         if not data:
             return None
-        return cls(
-            accqsure=accqsure,
+        entity = cls(
             id=data.get("entity_id"),
             name=data.get("name"),
             status=data.get("status"),
@@ -92,6 +90,16 @@ class Document:
             updated_at=data.get("updated_at"),
             content_id=data.get("content_id"),
         )
+        entity.accqsure = accqsure
+        return entity
+
+    @property
+    def accqsure(self) -> "AccQsure":
+        return self._accqsure
+
+    @accqsure.setter
+    def accqsure(self, value: "AccQsure"):
+        self._accqsure = value
 
     async def remove(self):
 
@@ -112,7 +120,7 @@ class Document:
 
         for f in fields(self.__class__):
             if (
-                f.name not in exclude and f.init and resp.get(f.name)
+                f.name not in exclude and f.init and resp.get(f.name) is not None
             ):  # Only update init args (skip derived like sections/waypoints)
                 setattr(self, f.name, resp.get(f.name))
         return self
@@ -127,7 +135,7 @@ class Document:
 
         for f in fields(self.__class__):
             if (
-                f.name not in exclude and f.init and resp.get(f.name)
+                f.name not in exclude and f.init and resp.get(f.name) is not None
             ):  # Only update init args (skip derived like sections/waypoints)
                 setattr(self, f.name, resp.get(f.name))
         return self

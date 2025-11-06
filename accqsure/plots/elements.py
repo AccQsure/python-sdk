@@ -1,4 +1,9 @@
-import json
+from __future__ import annotations
+from dataclasses import dataclass, field, fields
+from typing import Optional, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from accqsure import AccQsure
 
 
 class PlotElements(object):
@@ -19,8 +24,8 @@ class PlotElements(object):
             "GET",
             kwargs,
         )
-        return PlotElement(
-            self.accqsure, self.plot_id, self.section_id, **resp
+        return PlotElement.from_api(
+            self.accqsure, self.plot_id, self.section_id, resp
         )
 
     async def list(self, limit=50, start_key=None, **kwargs):
@@ -31,54 +36,57 @@ class PlotElements(object):
             {"limit": limit, "start_key": start_key, **kwargs},
         )
         plot_elements = [
-            PlotElement(
-                self.accqsure, self.plot_id, self.section_id, **plot_element
+            PlotElement.from_api(
+                self.accqsure, self.plot_id, self.section_id, plot_element
             )
             for plot_element in resp.get("results")
         ]
         return plot_elements, resp.get("last_key")
 
 
+@dataclass
 class PlotElement:
-    def __init__(self, accqsure, plot_id, plot_section_id, **kwargs):
-        self.accqsure = accqsure
-        self.plot_id = plot_id
-        self.section_id = plot_section_id
-        self._entity = kwargs
-        self._id = self._entity.get("entity_id")
-        self._order = self._entity.get("order")
-        self._type = self._entity.get("type")
-        self._status = self._entity.get("status")
-        self._content = self._entity.get("content")
+    plot_id: str
+    section_id: str
+    id: str
+    order: int
+    type: str
+    status: str
+    created_at: Optional[str] = field(default=None)
+    updated_at: Optional[str] = field(default=None)
+    content: Optional[str] = field(default=None)
+
+    @classmethod
+    def from_api(
+        cls,
+        accqsure: "AccQsure",
+        plot_id: str,
+        section_id: str,
+        data: dict[str, Any],
+    ) -> "PlotElement":
+        if not data:
+            return None
+        entity = cls(
+            plot_id=plot_id,
+            section_id=section_id,
+            id=data.get("entity_id"),
+            order=data.get("order"),
+            type=data.get("type"),
+            status=data.get("status"),
+            content=data.get("content"),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+        )
+        entity.accqsure = accqsure
+        return entity
 
     @property
-    def id(self) -> str:
-        return self._id
+    def accqsure(self) -> "AccQsure":
+        return self._accqsure
 
-    @property
-    def order(self) -> int:
-        return self._order
-
-    @property
-    def type(self) -> str:
-        return self._type
-
-    @property
-    def status(self) -> str:
-        return self._status
-
-    @property
-    def content(self) -> str:
-        return self._content
-
-    def __str__(self):
-        return json.dumps({k: v for k, v in self._entity.items()})
-
-    def __repr__(self):
-        return f"PlotElement( accqsure , **{self._entity.__repr__()})"
-
-    def __bool__(self):
-        return bool(self._id)
+    @accqsure.setter
+    def accqsure(self, value: "AccQsure"):
+        self._accqsure = value
 
     async def refresh(self):
 
@@ -86,5 +94,11 @@ class PlotElement:
             f"/plot/{self.plot_id}/section/{self.section_id}/element/{self.id}",
             "GET",
         )
-        self.__init__(self.accqsure, **resp)
+        exclude = ["id", "plot_id", "section_id", "accqsure"]
+
+        for f in fields(self.__class__):
+            if (
+                f.name not in exclude and f.init and resp.get(f.name) is not None
+            ):  # Only update init args
+                setattr(self, f.name, resp.get(f.name))
         return self

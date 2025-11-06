@@ -1,8 +1,14 @@
-import json
+from __future__ import annotations
+from dataclasses import dataclass, field, fields
+from typing import Optional, Any, TYPE_CHECKING
 import logging
+
 from accqsure.exceptions import SpecificationError
 from .sections import PlotSections
 from .waypoints import PlotWaypoints
+
+if TYPE_CHECKING:
+    from accqsure import AccQsure
 
 
 class Plots(object):
@@ -12,7 +18,7 @@ class Plots(object):
     async def get(self, id_, **kwargs):
 
         resp = await self.accqsure._query(f"/plot/{id_}", "GET", kwargs)
-        return Plot(self.accqsure, **resp)
+        return Plot.from_api(self.accqsure, resp)
 
     async def list(self, limit=50, start_key=None, **kwargs):
 
@@ -21,7 +27,7 @@ class Plots(object):
             "GET",
             {"limit": limit, "start_key": start_key, **kwargs},
         )
-        plots = [Plot(self.accqsure, **plot) for plot in resp.get("results")]
+        plots = [Plot.from_api(self.accqsure, plot) for plot in resp.get("results")]
         return plots, resp.get("last_key")
 
     async def create(
@@ -42,7 +48,7 @@ class Plots(object):
         logging.info("Creating Plot %s", name)
 
         resp = await self.accqsure._query("/plot", "POST", None, payload)
-        plot = Plot(self.accqsure, **resp)
+        plot = Plot.from_api(self.accqsure, resp)
         logging.info("Created Plot %s with id %s", name, plot.id)
 
         return plot
@@ -52,59 +58,73 @@ class Plots(object):
         await self.accqsure._query(f"/plot/{id_}", "DELETE", {**kwargs})
 
 
+@dataclass
 class Plot:
-    def __init__(self, accqsure, **kwargs):
-        self.accqsure = accqsure
-        self._entity = kwargs
-        self._id = self._entity.get("entity_id")
-        self._name = self._entity.get("name")
-        self._record_id = self._entity.get("record_id")
-        self._status = self._entity.get("status")
-        self._content_id = self._entity.get("content_id")
-        self.sections = PlotSections(self.accqsure, self._id)
-        self.waypoints = PlotWaypoints(self.accqsure, self._id)
+    id: str
+    name: str
+    record_id: str
+    status: str
+    created_at: Optional[str] = field(default=None)
+    updated_at: Optional[str] = field(default=None)
+    content_id: Optional[str] = field(default=None)
+
+    sections: PlotSections = field(
+        init=False, repr=False, compare=False, hash=False
+    )
+    waypoints: PlotWaypoints = field(
+        init=False, repr=False, compare=False, hash=False
+    )
+
+    @classmethod
+    def from_api(
+        cls, accqsure: "AccQsure", data: dict[str, Any]
+    ) -> "Plot":
+        if not data:
+            return None
+        entity = cls(
+            id=data.get("entity_id"),
+            name=data.get("name"),
+            record_id=data.get("record_id"),
+            status=data.get("status"),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+            content_id=data.get("content_id"),
+        )
+        entity.accqsure = accqsure
+        entity.sections = PlotSections(entity.accqsure, entity.id)
+        entity.waypoints = PlotWaypoints(entity.accqsure, entity.id)
+        return entity
 
     @property
-    def id(self) -> str:
-        return self._id
+    def accqsure(self) -> "AccQsure":
+        return self._accqsure
 
-    @property
-    def record_id(self) -> str:
-        return self._record_id
-
-    @property
-    def status(self) -> str:
-        return self._status
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    def __str__(self):
-        return json.dumps({k: v for k, v in self._entity.items()})
-
-    def __repr__(self):
-        return f"Plot( accqsure , **{self._entity.__repr__()})"
-
-    def __bool__(self):
-        return bool(self._id)
+    @accqsure.setter
+    def accqsure(self, value: "AccQsure"):
+        self._accqsure = value
 
     async def remove(self):
 
         await self.accqsure._query(
-            f"/plot/{self._id}",
+            f"/plot/{self.id}",
             "DELETE",
         )
 
     async def rename(self, name):
 
         resp = await self.accqsure._query(
-            f"/plot/{self._id}",
+            f"/plot/{self.id}",
             "PUT",
             None,
             dict(name=name),
         )
-        self.__init__(self.accqsure, **resp)
+        exclude = ["id", "accqsure"]
+
+        for f in fields(self.__class__):
+            if (
+                f.name not in exclude and f.init and resp.get(f.name) is not None
+            ):  # Only update init args (skip derived like sections/waypoints)
+                setattr(self, f.name, resp.get(f.name))
         return self
 
     async def refresh(self):
@@ -113,7 +133,13 @@ class Plot:
             f"/plot/{self.id}",
             "GET",
         )
-        self.__init__(self.accqsure, **resp)
+        exclude = ["id", "accqsure"]
+
+        for f in fields(self.__class__):
+            if (
+                f.name not in exclude and f.init and resp.get(f.name) is not None
+            ):  # Only update init args (skip derived like sections/waypoints)
+                setattr(self, f.name, resp.get(f.name))
         return self
 
     async def _set_asset(self, path, file_name, mime_type, contents):
@@ -126,7 +152,7 @@ class Plot:
         )
 
     async def get_contents(self):
-        if not self._content_id:
+        if not self.content_id:
             raise SpecificationError(
                 "content_id", "Content not finalized for plot"
             )
@@ -138,7 +164,7 @@ class Plot:
         return resp
 
     async def get_content_item(self, name):
-        if not self._content_id:
+        if not self.content_id:
             raise SpecificationError(
                 "content_id", "Content not finalized for plot"
             )
@@ -149,7 +175,7 @@ class Plot:
         )
 
     async def _set_content_item(self, name, file_name, mime_type, contents):
-        if not self._content_id:
+        if not self.content_id:
             raise SpecificationError(
                 "content_id", "Content not finalized for plot"
             )

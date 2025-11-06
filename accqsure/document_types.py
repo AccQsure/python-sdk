@@ -1,19 +1,27 @@
-import json
+from __future__ import annotations
+from dataclasses import dataclass, field, fields
+from typing import Optional, Any, TYPE_CHECKING
 import logging
+
+if TYPE_CHECKING:
+    from accqsure import AccQsure
 
 
 class DocumentTypes(object):
     def __init__(self, accqsure):
         self.accqsure = accqsure
 
-    async def get(self, id, **kwargs):
-        resp = await self.accqsure._query(f"/document/type/{id}", "GET", kwargs)
-        return DocumentType(self.accqsure, **resp)
+    async def get(self, id_, **kwargs):
+        resp = await self.accqsure._query(
+            f"/document/type/{id_}", "GET", kwargs
+        )
+        return DocumentType.from_api(self.accqsure, resp)
 
     async def list(self, **kwargs):
-        resp = await self.accqsure._query(f"/document/type", "GET", kwargs)
+        resp = await self.accqsure._query("/document/type", "GET", kwargs)
         document_types = [
-            DocumentType(self.accqsure, **document_type) for document_type in resp
+            DocumentType.from_api(self.accqsure, document_type)
+            for document_type in resp
         ]
         return document_types
 
@@ -32,71 +40,93 @@ class DocumentTypes(object):
             **kwargs,
         )
         payload = {k: v for k, v in data.items() if v is not None}
-        logging.info(f"Creating Document Type {name}")
-        resp = await self.accqsure._query("/document/type", "POST", None, payload)
-        document_type = DocumentType(self.accqsure, **resp)
-        logging.info(f"Created Document Type {name} with id {document_type.id}")
+        logging.info("Creating Document Type %s", name)
+        resp = await self.accqsure._query(
+            "/document/type", "POST", None, payload
+        )
+        document_type = DocumentType.from_api(self.accqsure, resp)
+        logging.info(
+            "Created Document Type %s with id %s", name, document_type.id
+        )
 
         return document_type
 
-    async def remove(self, id, **kwargs):
-        await self.accqsure._query(f"/document/type/{id}", "DELETE", dict(**kwargs))
+    async def remove(self, id_, **kwargs):
+        await self.accqsure._query(
+            f"/document/type/{id_}", "DELETE", dict(**kwargs)
+        )
 
 
+@dataclass
 class DocumentType:
-    def __init__(self, accqsure, **kwargs):
-        self.accqsure = accqsure
-        self._entity = kwargs
-        self._id = self._entity.get("entity_id")
-        self._name = self._entity.get("name")
-        self._code = self._entity.get("code")
-        self._level = self._entity.get("level")
+    id: str
+    name: str
+    code: str
+    level: int
+    created_at: Optional[str] = field(default=None)
+    updated_at: Optional[str] = field(default=None)
+
+    @classmethod
+    def from_api(
+        cls, accqsure: "AccQsure", data: dict[str, Any]
+    ) -> "DocumentType":
+        if not data:
+            return None
+        entity = cls(
+            id=data.get("entity_id"),
+            name=data.get("name"),
+            code=data.get("code"),
+            level=data.get("level"),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+        )
+        entity.accqsure = accqsure
+        return entity
 
     @property
-    def id(self) -> str:
-        return self._id
+    def accqsure(self) -> "AccQsure":
+        return self._accqsure
 
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def code(self) -> str:
-        return self._code
-
-    @property
-    def level(self) -> int:
-        return self._level
-
-    def __str__(self):
-        return json.dumps({k: v for k, v in self._entity.items()})
-
-    def __repr__(self):
-        return f"DocumentType( accqsure , **{self._entity.__repr__()})"
-
-    def __bool__(self):
-        return bool(self._id)
+    @accqsure.setter
+    def accqsure(self, value: "AccQsure"):
+        self._accqsure = value
 
     async def remove(self):
         await self.accqsure._query(
-            f"/document/type/{self._id}",
+            f"/document/type/{self.id}",
             "DELETE",
         )
 
     async def update(self, **kwargs):
         resp = await self.accqsure._query(
-            f"/document/type/{self._id}",
+            f"/document/type/{self.id}",
             "PUT",
             None,
             dict(**kwargs),
         )
-        self.__init__(self.accqsure, **resp)
+        exclude = ["id", "accqsure"]
+
+        for f in fields(self.__class__):
+            if (
+                f.name not in exclude
+                and f.init
+                and resp.get(f.name) is not None
+            ):  # Only update init args
+                setattr(self, f.name, resp.get(f.name))
         return self
 
     async def refresh(self):
         resp = await self.accqsure._query(
-            f"/document/{self.id}",
+            f"/document/type/{self.id}",
             "GET",
         )
-        self.__init__(self.accqsure, **resp)
+        exclude = ["id", "accqsure"]
+
+        for f in fields(self.__class__):
+            if (
+                f.name not in exclude
+                and f.init
+                and resp.get(f.name) is not None
+            ):  # Only update init args
+                setattr(self, f.name, resp.get(f.name))
         return self

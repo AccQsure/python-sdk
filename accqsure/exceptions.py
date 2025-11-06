@@ -62,7 +62,7 @@ class TaskError(AccQsureException):
         self._message = message
 
     def __repr__(self):
-        return "TaskError({self.attribute}, {self.message})".format(self=self)
+        return "TaskError({self.message})".format(self=self)
 
     def __str__(self):
-        return "TaskError({self.attribute}, {self.message})".format(self=self)
+        return "TaskError({self.message})".format(self=self)
