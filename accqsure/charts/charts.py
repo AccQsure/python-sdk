@@ -13,9 +13,9 @@ if TYPE_CHECKING:
     from accqsure import AccQsure
 
 
-@dataclass
 class Charts:
-    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
+    def __init__(self, accqsure):
+        self.accqsure = accqsure
 
     async def get(self, id_, **kwargs):
 

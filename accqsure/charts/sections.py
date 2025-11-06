@@ -10,10 +10,10 @@ if TYPE_CHECKING:
 from .elements import ChartElements
 
 
-@dataclass
 class ChartSections(object):
-    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
-    chart_id: str
+    def __init__(self, accqsure, chart_id):
+        self.accqsure = accqsure
+        self.chart_id = chart_id
 
     async def get(self, id_, **kwargs):
 
@@ -75,7 +75,6 @@ class ChartSections(object):
 
 @dataclass
 class ChartSection:
-    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
     chart_id: str
     id: str
     created_at: str
@@ -98,8 +97,7 @@ class ChartSection:
     ) -> "ChartSection":
         if not data:
             return None
-        return cls(
-            accqsure=accqsure,
+        entity = cls(
             chart_id=chart_id,
             id=data.get("entity_id"),
             created_at=data.get("created_at"),
@@ -109,6 +107,16 @@ class ChartSection:
             style=data.get("style"),
             order=data.get("order"),
         )
+        entity.accqsure = accqsure
+        return entity
+
+    @property
+    def accqsure(self) -> "AccQsure":
+        return self._accqsure
+
+    @accqsure.setter
+    def accqsure(self, value: "AccQsure"):
+        self._accqsure = value
 
     async def refresh(self):
 

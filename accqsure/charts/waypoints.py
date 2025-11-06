@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, fields
 import logging
 from typing import Any, TYPE_CHECKING
 
@@ -7,10 +7,10 @@ if TYPE_CHECKING:
     from accqsure import AccQsure
 
 
-@dataclass
 class ChartWaypoints(object):
-    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
-    chart_id: str
+    def __init__(self, accqsure, chart_id):
+        self.accqsure = accqsure
+        self.chart_id = chart_id
 
     async def get(self, id_, **kwargs):
 

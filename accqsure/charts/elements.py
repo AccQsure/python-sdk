@@ -8,11 +8,16 @@ if TYPE_CHECKING:
     from accqsure import AccQsure
 
 
-@dataclass
 class ChartElements:
-    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
-    chart_id: str
-    section_id: str
+    def __init__(
+        self,
+        accqsure,
+        chart_id,
+        chart_section_id,
+    ):
+        self.accqsure = accqsure
+        self.chart_id = chart_id
+        self.section_id = chart_section_id
 
     async def get(self, id_, **kwargs):
 
@@ -89,7 +94,6 @@ class ChartElements:
 
 @dataclass
 class ChartElement:
-    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
     chart_id: str
     section_id: str
     id: str
@@ -114,8 +118,7 @@ class ChartElement:
     ) -> "ChartElement":
         if not data:
             return None
-        return cls(
-            accqsure=accqsure,
+        entity = cls(
             chart_id=chart_id,
             section_id=section_id,
             id=data.get("entity_id"),
@@ -134,6 +137,16 @@ class ChartElement:
                 for waypoint in data.get("waypoints") or []
             ],
         )
+        entity.accqsure = accqsure
+        return entity
+
+    @property
+    def accqsure(self) -> "AccQsure":
+        return self._accqsure
+
+    @accqsure.setter
+    def accqsure(self, value: "AccQsure"):
+        self._accqsure = value
 
     async def refresh(self):
 

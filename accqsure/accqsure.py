@@ -1,6 +1,3 @@
-from dataclasses import dataclass, field
-from typing import Optional
-from os import PathLike
 import json
 import os
 import aiohttp
@@ -34,55 +31,32 @@ DEFAULT_CONFIG_DIR = "~/.accqsure"
 DEFAULT_CREDENTIAL_FILE_NAME = "credentials.json"
 
 
-@dataclass
 class AccQsure(object):
-    _version = version("accqsure")
-    config_dir: Optional[PathLike[str]] = None
-    credentials_file: Optional[PathLike[str]] = None
-    key: Optional[str] = None
-
-    auth: Auth = field(init=False, repr=False, compare=False, hash=False)
-    text: Text = field(init=False, repr=False, compare=False, hash=False)
-    document_types: DocumentTypes = field(
-        init=False, repr=False, compare=False, hash=False
-    )
-    documents: Documents = field(
-        init=False, repr=False, compare=False, hash=False
-    )
-    manifests: Manifests = field(
-        init=False, repr=False, compare=False, hash=False
-    )
-    inspections: Inspections = field(
-        init=False, repr=False, compare=False, hash=False
-    )
-    plots: Plots = field(init=False, repr=False, compare=False, hash=False)
-    charts: Charts = field(init=False, repr=False, compare=False, hash=False)
-    util: Utilities = field(init=False, repr=False, compare=False, hash=False)
-
-    def __post_init__(self, **kwargs):
-        self.config_dir = (
-            Path(self.config_dir).expanduser().resolve()
-            if self.config_dir
+    def __init__(self, **kwargs):
+        self._version = version("accqsure")
+        config_dir = (
+            Path(kwargs.get("config_dir")).expanduser().resolve()
+            if kwargs.get("config_dir")
             else Path(
                 os.environ.get("ACCQSURE_CONFIG_DIR") or DEFAULT_CONFIG_DIR
             )
             .expanduser()
             .resolve()
         )
-        self.credentials_file = (
-            Path(self.credentials_file).expanduser().resolve()
-            if self.credentials_file
+        credentials_file = (
+            Path(kwargs.get("credentials_file")).expanduser().resolve()
+            if kwargs.get("credentials_file")
             else Path(
                 os.environ.get("ACCQSURE_CREDENTIALS_FILE")
-                or f"{self.config_dir}/{DEFAULT_CREDENTIAL_FILE_NAME}"
+                or f"{config_dir}/{DEFAULT_CREDENTIAL_FILE_NAME}"
             )
             .expanduser()
             .resolve()
         )
         self.auth = Auth(
-            config_dir=self.config_dir,
-            credentials_file=self.credentials_file,
-            key=self.key,
+            config_dir=config_dir,
+            credentials_file=credentials_file,
+            key=kwargs.get("key", None),
         )
         self.text = Text(self)
         self.document_types = DocumentTypes(self)
