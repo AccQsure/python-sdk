@@ -68,7 +68,6 @@ class ChartWaypoints(object):
 
 @dataclass
 class ChartWaypoint:
-    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
     chart_id: str
     id: str
     name: str
@@ -81,14 +80,24 @@ class ChartWaypoint:
     ) -> "ChartWaypoint":
         if not data:
             return None
-        return cls(
-            accqsure=accqsure,
+
+        entity = cls(
             chart_id=chart_id,
             id=data.get("entity_id"),
             name=data.get("name"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
         )
+        entity.accqsure = accqsure
+        return entity
+
+    @property
+    def accqsure(self) -> "AccQsure":
+        return self._accqsure
+
+    @accqsure.setter
+    def accqsure(self, value: "AccQsure"):
+        self._accqsure = value
 
     async def refresh(self):
 

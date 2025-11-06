@@ -91,7 +91,6 @@ class Charts:
 
 @dataclass
 class Chart:
-    accqsure: "AccQsure" = field(repr=False, compare=False, hash=False)
     id: str
     name: str
     document_type_id: str
@@ -109,16 +108,11 @@ class Chart:
         init=False, repr=False, compare=False, hash=False
     )
 
-    def __post_init__(self):
-        self.sections = ChartSections(self.accqsure, self.id)
-        self.waypoints = ChartWaypoints(self.accqsure, self.id)
-
     @classmethod
     def from_api(cls, accqsure: "AccQsure", data: dict[str, Any]) -> "Chart":
         if not data:
             return None
-        return cls(
-            accqsure=accqsure,
+        entity = cls(
             id=data.get("entity_id"),
             name=data.get("name"),
             status=data.get("status"),
@@ -131,6 +125,18 @@ class Chart:
             approved_by=data.get("approved_by"),
             last_modified_by=data.get("last_modified_by"),
         )
+        entity.accqsure = accqsure
+        entity.sections = ChartSections(entity.accqsure, entity.id)
+        entity.waypoints = ChartWaypoints(entity.accqsure, entity.id)
+        return entity
+
+    @property
+    def accqsure(self) -> "AccQsure":
+        return self._accqsure
+
+    @accqsure.setter
+    def accqsure(self, value: "AccQsure"):
+        self._accqsure = value
 
     async def remove(self):
 
