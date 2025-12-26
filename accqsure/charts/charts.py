@@ -91,11 +91,8 @@ class Charts:
                     **kwargs,
                 },
             )
-            charts = [
-                Chart.from_api(self.accqsure, chart)
-                for chart in resp.get("results")
-            ]
-            return charts, resp.get("last_key")
+            charts = [Chart.from_api(self.accqsure, chart) for chart in resp]
+            return charts
         else:
             resp = await self.accqsure._query(
                 "/chart",
@@ -274,7 +271,13 @@ class Chart:
             None,
             dict(name=name),
         )
-        self.__init__(self.accqsure, **resp)
+        exclude = ["id", "accqsure"]
+
+        for f in fields(self.__class__):
+            if (
+                f.name not in exclude and f.init and resp.get(f.name)
+            ):  # Only update init args (skip derived like sections/waypoints)
+                setattr(self, f.name, resp.get(f.name))
         return self
 
     async def refresh(self) -> "Chart":

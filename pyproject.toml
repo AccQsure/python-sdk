@@ -1,7 +1,21 @@
 [tool.pytest.ini_options]
+addopts = "--cov-report term-missing --cov=accqsure -n 4 --dist=loadgroup"
 python_files = "test_*"
 python_classes = "*Tests"
 python_functions = "test_*"
 asyncio_mode = "auto"
 testpaths = ["tests"]
-markers = ["sdk: All tests of the SDK", "cli: All test of the cli"]
+markers = [
+    "sdk: All tests of the SDK",
+    "cli: All test of the cli",
+    "auth: Tests for authentication module",
+    "documents: Tests for documents module",
+    "document_types: Tests for document_types module",
+    "manifests: Tests for manifests module",
+    "inspections: Tests for inspections module",
+    "text: Tests for text module",
+    "util: Tests for util module",
+    "charts: Tests for charts module",
+    "plots: Tests for plots module",
+    "exceptions: Tests for exceptions module",
+]

@@ -375,7 +375,7 @@ class AccQsure(object):
                     return answer
                 except Exception as e:
                     logging.exception("Error during generation response")
-                    data = await response.text()
+                    data = await resp.text()
                     logging.error("Response error: %s", data)
                     raise e
 
