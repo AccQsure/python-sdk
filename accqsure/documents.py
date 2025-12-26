@@ -46,36 +46,66 @@ class Documents:
         return Document.from_api(self.accqsure, resp)
 
     async def list(
-        self, document_type_id: str, **kwargs: Any
-    ) -> Tuple[List["Document"], Optional[str]]:
+        self,
+        document_type_id: str,
+        limit: int = 50,
+        start_key: Optional[str] = None,
+        fetch_all: bool = False,
+        **kwargs: Any,
+    ) -> Union[List["Document"], Tuple[List["Document"], Optional[str]]]:
         """List documents filtered by document type.
 
-        Retrieves a paginated list of documents for a specific document type.
+        Retrieves a list of documents for a specific document type.
+        Can return all results or paginated results.
 
         Args:
             document_type_id: Document type ID to filter by.
-            **kwargs: Additional query parameters:
-                - limit: Number of results to return (default: 50, max: 100).
-                - start_key: Pagination cursor from previous response.
+            limit: Number of results to return per page (default: 50, max: 100).
+                   Only used if fetch_all is False.
+            start_key: Pagination cursor from previous response.
+                      Only used if fetch_all is False.
+            fetch_all: If True, fetches all results across all pages.
+                      If False, returns paginated results.
+            **kwargs: Additional query parameters.
 
         Returns:
-            Tuple of (list of Document instances, last_key for pagination).
+            If fetch_all is True: List of all Document instances.
+            If fetch_all is False: Tuple of (list of Document instances,
+                                          last_key for pagination).
 
         Raises:
             ApiError: If the API returns an error.
             AccQsureException: If there's an error making the request.
         """
-        resp = await self.accqsure._query(
-            "/document",
-            "GET",
-            dict(document_type_id=document_type_id, **kwargs),
-        )
-
-        documents = [
-            Document.from_api(self.accqsure, document)
-            for document in resp.get("results")
-        ]
-        return documents, resp.get("last_key")
+        if fetch_all:
+            resp = await self.accqsure._query_all(
+                "/document",
+                "GET",
+                {
+                    "document_type_id": document_type_id,
+                    **kwargs,
+                },
+            )
+            documents = [
+                Document.from_api(self.accqsure, document) for document in resp
+            ]
+            return documents
+        else:
+            resp = await self.accqsure._query(
+                "/document",
+                "GET",
+                dict(
+                    document_type_id=document_type_id,
+                    limit=limit,
+                    start_key=start_key,
+                    **kwargs,
+                ),
+            )
+            documents = [
+                Document.from_api(self.accqsure, document)
+                for document in resp.get("results")
+            ]
+            return documents, resp.get("last_key")
 
     async def create(
         self,

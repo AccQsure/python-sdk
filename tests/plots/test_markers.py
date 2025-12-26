@@ -53,6 +53,48 @@ class PlotMarkersTests:
         assert last_key is None
 
     @pytest.mark.asyncio
+    async def test_list_fetch_all(self, mock_accqsure_client, aiohttp_mock, sample_plot_id):
+        """Test PlotMarkers.list with fetch_all=True."""
+        waypoint_id = '0123456789abcdef01234568'
+        # First page
+        aiohttp_mock.get(
+            f'https://api-prod.accqsure.ai/v1/plot/{sample_plot_id}/waypoint/{waypoint_id}/marker?limit=100',
+            payload={
+                'results': [
+                    {
+                        'entity_id': '0123456789abcdef01234567',
+                        'name': 'Marker 1',
+                        'created_at': '2024-01-01T00:00:00Z',
+                        'updated_at': '2024-01-01T00:00:00Z',
+                    }
+                ],
+                'last_key': 'cursor123',
+            },
+        )
+
+        # Second page
+        aiohttp_mock.get(
+            f'https://api-prod.accqsure.ai/v1/plot/{sample_plot_id}/waypoint/{waypoint_id}/marker?limit=100&start_key=cursor123',
+            payload={
+                'results': [
+                    {
+                        'entity_id': '0123456789abcdef01234569',
+                        'name': 'Marker 2',
+                        'created_at': '2024-01-01T00:00:00Z',
+                        'updated_at': '2024-01-01T00:00:00Z',
+                    }
+                ],
+                'last_key': None,
+            },
+        )
+
+        markers = PlotMarkers(mock_accqsure_client, sample_plot_id, waypoint_id)
+        marker_list = await markers.list(fetch_all=True)
+        assert len(marker_list) == 2
+        assert marker_list[0].name == 'Marker 1'
+        assert marker_list[1].name == 'Marker 2'
+
+    @pytest.mark.asyncio
     async def test_create(self, mock_accqsure_client, aiohttp_mock, sample_plot_id):
         """Test PlotMarkers.create method."""
         waypoint_id = '0123456789abcdef01234568'

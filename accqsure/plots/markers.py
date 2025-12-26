@@ -65,36 +65,58 @@ class PlotMarkers(object):
         self,
         limit: int = 50,
         start_key: Optional[str] = None,
+        fetch_all: bool = False,
         **kwargs: Any,
-    ) -> Tuple[List["PlotMarker"], Optional[str]]:
+    ) -> Union[List["PlotMarker"], Tuple[List["PlotMarker"], Optional[str]]]:
         """List plot markers.
 
-        Retrieves a paginated list of markers for this plot waypoint.
+        Retrieves a list of markers for this plot waypoint.
+        Can return all results or paginated results.
 
         Args:
-            limit: Number of results to return (default: 50, max: 100).
+            limit: Number of results to return per page (default: 50, max: 100).
+                   Only used if fetch_all is False.
             start_key: Pagination cursor from previous response.
+                      Only used if fetch_all is False.
+            fetch_all: If True, fetches all results across all pages.
+                      If False, returns paginated results.
             **kwargs: Additional query parameters.
 
         Returns:
-            Tuple of (list of PlotMarker instances, last_key for pagination).
+            If fetch_all is True: List of all PlotMarker instances.
+            If fetch_all is False: Tuple of (list of PlotMarker instances,
+                                          last_key for pagination).
 
         Raises:
             ApiError: If the API returns an error.
             AccQsureException: If there's an error making the request.
         """
-        resp = await self.accqsure._query(
-            f"/plot/{self.plot_id}/waypoint/{self.waypoint_id}/marker",
-            "GET",
-            {"limit": limit, "start_key": start_key, **kwargs},
-        )
-        plot_markers = [
-            PlotMarker.from_api(
-                self.accqsure, self.plot_id, self.waypoint_id, plot_marker
+        if fetch_all:
+            resp = await self.accqsure._query_all(
+                f"/plot/{self.plot_id}/waypoint/{self.waypoint_id}/marker",
+                "GET",
+                {**kwargs},
             )
-            for plot_marker in resp.get("results")
-        ]
-        return plot_markers, resp.get("last_key")
+            plot_markers = [
+                PlotMarker.from_api(
+                    self.accqsure, self.plot_id, self.waypoint_id, plot_marker
+                )
+                for plot_marker in resp
+            ]
+            return plot_markers
+        else:
+            resp = await self.accqsure._query(
+                f"/plot/{self.plot_id}/waypoint/{self.waypoint_id}/marker",
+                "GET",
+                {"limit": limit, "start_key": start_key, **kwargs},
+            )
+            plot_markers = [
+                PlotMarker.from_api(
+                    self.accqsure, self.plot_id, self.waypoint_id, plot_marker
+                )
+                for plot_marker in resp.get("results")
+            ]
+            return plot_markers, resp.get("last_key")
 
     async def create(
         self,

@@ -35,7 +35,7 @@ class DocumentsTests:
     async def test_list(self, mock_accqsure_client, aiohttp_mock, sample_document_type_id):
         """Test Documents.list method."""
         aiohttp_mock.get(
-            f'https://api-prod.accqsure.ai/v1/document?document_type_id={sample_document_type_id}',
+            f'https://api-prod.accqsure.ai/v1/document?document_type_id={sample_document_type_id}&limit=50',
             payload={
                 'results': [
                     {
@@ -83,6 +83,53 @@ class DocumentsTests:
         )
         assert len(documents) == 1
         assert last_key == 'cursor123'
+
+    @pytest.mark.asyncio
+    async def test_list_fetch_all(self, mock_accqsure_client, aiohttp_mock, sample_document_type_id):
+        """Test Documents.list with fetch_all=True."""
+        # First page
+        aiohttp_mock.get(
+            f'https://api-prod.accqsure.ai/v1/document?document_type_id={sample_document_type_id}&limit=100',
+            payload={
+                'results': [
+                    {
+                        'entity_id': '0123456789abcdef01234567',
+                        'name': 'Document 1',
+                        'status': 'active',
+                        'doc_id': 'DOC-001',
+                        'created_at': '2024-01-01T00:00:00Z',
+                        'updated_at': '2024-01-01T00:00:00Z',
+                    }
+                ],
+                'last_key': 'cursor123',
+            },
+        )
+
+        # Second page
+        aiohttp_mock.get(
+            f'https://api-prod.accqsure.ai/v1/document?document_type_id={sample_document_type_id}&limit=100&start_key=cursor123',
+            payload={
+                'results': [
+                    {
+                        'entity_id': '0123456789abcdef01234568',
+                        'name': 'Document 2',
+                        'status': 'active',
+                        'doc_id': 'DOC-002',
+                        'created_at': '2024-01-01T00:00:00Z',
+                        'updated_at': '2024-01-01T00:00:00Z',
+                    }
+                ],
+                'last_key': None,
+            },
+        )
+
+        documents = await mock_accqsure_client.documents.list(
+            sample_document_type_id,
+            fetch_all=True,
+        )
+        assert len(documents) == 2
+        assert documents[0].name == 'Document 1'
+        assert documents[1].name == 'Document 2'
 
     @pytest.mark.asyncio
     async def test_create(self, mock_accqsure_client, aiohttp_mock, sample_document_type_id):

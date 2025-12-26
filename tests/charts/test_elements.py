@@ -52,6 +52,48 @@ class ChartElementsTests:
         assert last_key is None
 
     @pytest.mark.asyncio
+    async def test_list_fetch_all(self, mock_accqsure_client, aiohttp_mock, sample_chart_id):
+        """Test ChartElements.list with fetch_all=True."""
+        section_id = '0123456789abcdef01234568'
+        # First page
+        aiohttp_mock.get(
+            f'https://api-prod.accqsure.ai/v1/chart/{sample_chart_id}/section/{section_id}/element?limit=100',
+            payload={
+                'results': [
+                    {
+                        'entity_id': '0123456789abcdef01234567',
+                        'type': 'narrative',
+                        'created_at': '2024-01-01T00:00:00Z',
+                        'updated_at': '2024-01-01T00:00:00Z',
+                    }
+                ],
+                'last_key': 'cursor123',
+            },
+        )
+
+        # Second page
+        aiohttp_mock.get(
+            f'https://api-prod.accqsure.ai/v1/chart/{sample_chart_id}/section/{section_id}/element?limit=100&start_key=cursor123',
+            payload={
+                'results': [
+                    {
+                        'entity_id': '0123456789abcdef01234569',
+                        'type': 'title',
+                        'created_at': '2024-01-01T00:00:00Z',
+                        'updated_at': '2024-01-01T00:00:00Z',
+                    }
+                ],
+                'last_key': None,
+            },
+        )
+
+        elements = ChartElements(mock_accqsure_client, sample_chart_id, section_id)
+        element_list = await elements.list(fetch_all=True)
+        assert len(element_list) == 2
+        assert element_list[0].id == '0123456789abcdef01234567'
+        assert element_list[1].id == '0123456789abcdef01234569'
+
+    @pytest.mark.asyncio
     async def test_create(self, mock_accqsure_client, aiohttp_mock, sample_chart_id):
         """Test ChartElements.create method."""
         section_id = '0123456789abcdef01234568'

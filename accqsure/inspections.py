@@ -51,44 +51,71 @@ class Inspections(object):
         inspection_type: INSPECTION_TYPE,
         limit: int = 50,
         start_key: Optional[str] = None,
+        fetch_all: bool = False,
         **kwargs: Any,
-    ) -> Tuple[List["Inspection"], Optional[str]]:
+    ) -> Union[List["Inspection"], Tuple[List["Inspection"], Optional[str]]]:
         """List inspections filtered by type.
 
-        Retrieves a paginated list of inspections for a specific inspection type.
+        Retrieves a list of inspections for a specific inspection type.
+        Can return all results or paginated results.
 
         Args:
             inspection_type: Inspection type to filter by (INSPECTION_TYPE enum).
-            limit: Number of results to return (default: 50, max: 100).
+            limit: Number of results to return per page (default: 50, max: 100).
+                   Only used if fetch_all is False.
             start_key: Pagination cursor from previous response.
+                      Only used if fetch_all is False.
+            fetch_all: If True, fetches all results across all pages.
+                      If False, returns paginated results.
             **kwargs: Additional query parameters.
 
         Returns:
-            Tuple of (list of Inspection instances, last_key for pagination).
+            If fetch_all is True: List of all Inspection instances.
+            If fetch_all is False: Tuple of (list of Inspection instances,
+                                          last_key for pagination).
 
         Raises:
             ApiError: If the API returns an error.
             AccQsureException: If there's an error making the request.
         """
-        resp = await self.accqsure._query(
-            "/inspection",
-            "GET",
-            {
-                "type": (
-                    inspection_type.value
-                    if isinstance(inspection_type, INSPECTION_TYPE)
-                    else inspection_type
-                ),
-                "limit": limit,
-                "start_key": start_key,
-                **kwargs,
-            },
-        )
-        inspections = [
-            Inspection.from_api(self.accqsure, inspection)
-            for inspection in resp.get("results")
-        ]
-        return inspections, resp.get("last_key")
+        if fetch_all:
+            resp = await self.accqsure._query_all(
+                "/inspection",
+                "GET",
+                {
+                    "type": (
+                        inspection_type.value
+                        if isinstance(inspection_type, INSPECTION_TYPE)
+                        else inspection_type
+                    ),
+                    **kwargs,
+                },
+            )
+            inspections = [
+                Inspection.from_api(self.accqsure, inspection)
+                for inspection in resp
+            ]
+            return inspections
+        else:
+            resp = await self.accqsure._query(
+                "/inspection",
+                "GET",
+                {
+                    "type": (
+                        inspection_type.value
+                        if isinstance(inspection_type, INSPECTION_TYPE)
+                        else inspection_type
+                    ),
+                    "limit": limit,
+                    "start_key": start_key,
+                    **kwargs,
+                },
+            )
+            inspections = [
+                Inspection.from_api(self.accqsure, inspection)
+                for inspection in resp.get("results")
+            ]
+            return inspections, resp.get("last_key")
 
     async def create(
         self,

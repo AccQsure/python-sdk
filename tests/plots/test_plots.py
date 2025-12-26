@@ -53,6 +53,50 @@ class PlotsTests:
         assert last_key is None
 
     @pytest.mark.asyncio
+    async def test_list_fetch_all(self, mock_accqsure_client, aiohttp_mock):
+        """Test Plots.list with fetch_all=True."""
+        # First page
+        aiohttp_mock.get(
+            'https://api-prod.accqsure.ai/v1/plot?limit=100',
+            payload={
+                'results': [
+                    {
+                        'entity_id': '0123456789abcdef01234567',
+                        'name': 'Plot 1',
+                        'record_id': 'REC-001',
+                        'status': 'active',
+                        'created_at': '2024-01-01T00:00:00Z',
+                        'updated_at': '2024-01-01T00:00:00Z',
+                    }
+                ],
+                'last_key': 'cursor123',
+            },
+        )
+
+        # Second page
+        aiohttp_mock.get(
+            'https://api-prod.accqsure.ai/v1/plot?limit=100&start_key=cursor123',
+            payload={
+                'results': [
+                    {
+                        'entity_id': '0123456789abcdef01234568',
+                        'name': 'Plot 2',
+                        'record_id': 'REC-002',
+                        'status': 'active',
+                        'created_at': '2024-01-01T00:00:00Z',
+                        'updated_at': '2024-01-01T00:00:00Z',
+                    }
+                ],
+                'last_key': None,
+            },
+        )
+
+        plots = await mock_accqsure_client.plots.list(fetch_all=True)
+        assert len(plots) == 2
+        assert plots[0].name == 'Plot 1'
+        assert plots[1].name == 'Plot 2'
+
+    @pytest.mark.asyncio
     async def test_create(self, mock_accqsure_client, aiohttp_mock, sample_chart_id):
         """Test Plots.create method."""
         aiohttp_mock.post(

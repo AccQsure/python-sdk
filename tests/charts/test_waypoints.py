@@ -51,6 +51,47 @@ class ChartWaypointsTests:
         assert last_key is None
 
     @pytest.mark.asyncio
+    async def test_list_fetch_all(self, mock_accqsure_client, aiohttp_mock, sample_chart_id):
+        """Test ChartWaypoints.list with fetch_all=True."""
+        # First page
+        aiohttp_mock.get(
+            f'https://api-prod.accqsure.ai/v1/chart/{sample_chart_id}/waypoint?limit=100',
+            payload={
+                'results': [
+                    {
+                        'entity_id': '0123456789abcdef01234567',
+                        'name': 'Waypoint 1',
+                        'created_at': '2024-01-01T00:00:00Z',
+                        'updated_at': '2024-01-01T00:00:00Z',
+                    }
+                ],
+                'last_key': 'cursor123',
+            },
+        )
+
+        # Second page
+        aiohttp_mock.get(
+            f'https://api-prod.accqsure.ai/v1/chart/{sample_chart_id}/waypoint?limit=100&start_key=cursor123',
+            payload={
+                'results': [
+                    {
+                        'entity_id': '0123456789abcdef01234568',
+                        'name': 'Waypoint 2',
+                        'created_at': '2024-01-01T00:00:00Z',
+                        'updated_at': '2024-01-01T00:00:00Z',
+                    }
+                ],
+                'last_key': None,
+            },
+        )
+
+        waypoints = ChartWaypoints(mock_accqsure_client, sample_chart_id)
+        waypoint_list = await waypoints.list(fetch_all=True)
+        assert len(waypoint_list) == 2
+        assert waypoint_list[0].name == 'Waypoint 1'
+        assert waypoint_list[1].name == 'Waypoint 2'
+
+    @pytest.mark.asyncio
     async def test_create(self, mock_accqsure_client, aiohttp_mock, sample_chart_id):
         """Test ChartWaypoints.create method."""
         aiohttp_mock.post(

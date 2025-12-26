@@ -59,6 +59,53 @@ class InspectionsTests:
         assert last_key is None
 
     @pytest.mark.asyncio
+    async def test_list_fetch_all(self, mock_accqsure_client, aiohttp_mock):
+        """Test Inspections.list with fetch_all=True."""
+        # First page
+        aiohttp_mock.get(
+            'https://api-prod.accqsure.ai/v1/inspection?limit=100&type=preliminary',
+            payload={
+                'results': [
+                    {
+                        'entity_id': '0123456789abcdef01234567',
+                        'name': 'Inspection 1',
+                        'type': 'preliminary',
+                        'status': 'active',
+                        'created_at': '2024-01-01T00:00:00Z',
+                        'updated_at': '2024-01-01T00:00:00Z',
+                    }
+                ],
+                'last_key': 'cursor123',
+            },
+        )
+
+        # Second page
+        aiohttp_mock.get(
+            'https://api-prod.accqsure.ai/v1/inspection?limit=100&start_key=cursor123&type=preliminary',
+            payload={
+                'results': [
+                    {
+                        'entity_id': '0123456789abcdef01234568',
+                        'name': 'Inspection 2',
+                        'type': 'preliminary',
+                        'status': 'active',
+                        'created_at': '2024-01-01T00:00:00Z',
+                        'updated_at': '2024-01-01T00:00:00Z',
+                    }
+                ],
+                'last_key': None,
+            },
+        )
+
+        inspections = await mock_accqsure_client.inspections.list(
+            INSPECTION_TYPE.PRELIMINARY,
+            fetch_all=True,
+        )
+        assert len(inspections) == 2
+        assert inspections[0].name == 'Inspection 1'
+        assert inspections[1].name == 'Inspection 2'
+
+    @pytest.mark.asyncio
     async def test_create_preliminary(self, mock_accqsure_client, aiohttp_mock, sample_document_type_id):
         """Test Inspections.create for preliminary inspection."""
         contents: DocumentContents = {

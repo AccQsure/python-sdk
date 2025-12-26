@@ -87,7 +87,6 @@ class ChartsTests:
     @pytest.mark.asyncio
     async def test_list_fetch_all(self, mock_accqsure_client, aiohttp_mock, sample_document_type_id):
         """Test Charts.list with fetch_all=True."""
-        # _query_all returns a list of chart dicts
         # First page
         aiohttp_mock.get(
             f'https://api-prod.accqsure.ai/v1/chart?document_type_id={sample_document_type_id}&limit=100',
@@ -100,7 +99,17 @@ class ChartsTests:
                         'status': 'active',
                         'created_at': '2024-01-01T00:00:00Z',
                         'updated_at': '2024-01-01T00:00:00Z',
-                    },
+                    }
+                ],
+                'last_key': 'cursor123',
+            },
+        )
+
+        # Second page
+        aiohttp_mock.get(
+            f'https://api-prod.accqsure.ai/v1/chart?document_type_id={sample_document_type_id}&limit=100&start_key=cursor123',
+            payload={
+                'results': [
                     {
                         'entity_id': '0123456789abcdef01234568',
                         'name': 'Test Chart 2',

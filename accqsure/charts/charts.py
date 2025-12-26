@@ -55,10 +55,7 @@ class Charts:
         start_key: Optional[str] = None,
         fetch_all: bool = False,
         **kwargs: Any,
-    ) -> Union[
-        Tuple[List["Chart"], Optional[str]],
-        Tuple[List["Chart"], Optional[str]],
-    ]:
+    ) -> Union[List["Chart"], Tuple[List["Chart"], Optional[str]]]:
         """List charts filtered by document type.
 
         Retrieves a list of charts for a specific document type.
@@ -75,8 +72,9 @@ class Charts:
             **kwargs: Additional query parameters.
 
         Returns:
-            Tuple of (list of Chart instances, last_key for pagination).
-            Note: fetch_all currently returns the same format but with all results.
+            If fetch_all is True: List of all Chart instances.
+            If fetch_all is False: Tuple of (list of Chart instances,
+                                          last_key for pagination).
 
         Raises:
             ApiError: If the API returns an error.

@@ -56,6 +56,51 @@ class ChartSectionsTests:
         assert last_key is None
 
     @pytest.mark.asyncio
+    async def test_list_fetch_all(self, mock_accqsure_client, aiohttp_mock, sample_chart_id):
+        """Test ChartSections.list with fetch_all=True."""
+        # First page
+        aiohttp_mock.get(
+            f'https://api-prod.accqsure.ai/v1/chart/{sample_chart_id}/section?limit=100',
+            payload={
+                'results': [
+                    {
+                        'entity_id': '0123456789abcdef01234567',
+                        'heading': 'Section 1',
+                        'style': 'h1',
+                        'order': 1,
+                        'created_at': '2024-01-01T00:00:00Z',
+                        'updated_at': '2024-01-01T00:00:00Z',
+                    }
+                ],
+                'last_key': 'cursor123',
+            },
+        )
+
+        # Second page
+        aiohttp_mock.get(
+            f'https://api-prod.accqsure.ai/v1/chart/{sample_chart_id}/section?limit=100&start_key=cursor123',
+            payload={
+                'results': [
+                    {
+                        'entity_id': '0123456789abcdef01234568',
+                        'heading': 'Section 2',
+                        'style': 'h2',
+                        'order': 2,
+                        'created_at': '2024-01-01T00:00:00Z',
+                        'updated_at': '2024-01-01T00:00:00Z',
+                    }
+                ],
+                'last_key': None,
+            },
+        )
+
+        sections = ChartSections(mock_accqsure_client, sample_chart_id)
+        section_list = await sections.list(fetch_all=True)
+        assert len(section_list) == 2
+        assert section_list[0].heading == 'Section 1'
+        assert section_list[1].heading == 'Section 2'
+
+    @pytest.mark.asyncio
     async def test_create(self, mock_accqsure_client, aiohttp_mock, sample_chart_id):
         """Test ChartSections.create method."""
         aiohttp_mock.post(

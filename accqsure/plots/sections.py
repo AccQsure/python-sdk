@@ -51,34 +51,54 @@ class PlotSections(object):
         self,
         limit: int = 50,
         start_key: Optional[str] = None,
+        fetch_all: bool = False,
         **kwargs: Any,
-    ) -> Tuple[List["PlotSection"], Optional[str]]:
+    ) -> Union[List["PlotSection"], Tuple[List["PlotSection"], Optional[str]]]:
         """List plot sections.
 
-        Retrieves a paginated list of sections for this plot.
+        Retrieves a list of sections for this plot.
+        Can return all results or paginated results.
 
         Args:
-            limit: Number of results to return (default: 50, max: 100).
+            limit: Number of results to return per page (default: 50, max: 100).
+                   Only used if fetch_all is False.
             start_key: Pagination cursor from previous response.
+                      Only used if fetch_all is False.
+            fetch_all: If True, fetches all results across all pages.
+                      If False, returns paginated results.
             **kwargs: Additional query parameters.
 
         Returns:
-            Tuple of (list of PlotSection instances, last_key for pagination).
+            If fetch_all is True: List of all PlotSection instances.
+            If fetch_all is False: Tuple of (list of PlotSection instances,
+                                          last_key for pagination).
 
         Raises:
             ApiError: If the API returns an error.
             AccQsureException: If there's an error making the request.
         """
-        resp = await self.accqsure._query(
-            f"/plot/{self.plot_id}/section",
-            "GET",
-            {"limit": limit, "start_key": start_key, **kwargs},
-        )
-        plot_sections = [
-            PlotSection.from_api(self.accqsure, self.plot_id, plot_section)
-            for plot_section in resp.get("results")
-        ]
-        return plot_sections, resp.get("last_key")
+        if fetch_all:
+            resp = await self.accqsure._query_all(
+                f"/plot/{self.plot_id}/section",
+                "GET",
+                {**kwargs},
+            )
+            plot_sections = [
+                PlotSection.from_api(self.accqsure, self.plot_id, plot_section)
+                for plot_section in resp
+            ]
+            return plot_sections
+        else:
+            resp = await self.accqsure._query(
+                f"/plot/{self.plot_id}/section",
+                "GET",
+                {"limit": limit, "start_key": start_key, **kwargs},
+            )
+            plot_sections = [
+                PlotSection.from_api(self.accqsure, self.plot_id, plot_section)
+                for plot_section in resp.get("results")
+            ]
+            return plot_sections, resp.get("last_key")
 
 
 @dataclass

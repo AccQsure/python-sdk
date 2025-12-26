@@ -55,34 +55,54 @@ class ChartSections(object):
         self,
         limit: int = 50,
         start_key: Optional[str] = None,
+        fetch_all: bool = False,
         **kwargs: Any,
-    ) -> Tuple[List["ChartSection"], Optional[str]]:
+    ) -> Union[List["ChartSection"], Tuple[List["ChartSection"], Optional[str]]]:
         """List chart sections.
 
-        Retrieves a paginated list of sections for this chart.
+        Retrieves a list of sections for this chart.
+        Can return all results or paginated results.
 
         Args:
-            limit: Number of results to return (default: 50, max: 100).
+            limit: Number of results to return per page (default: 50, max: 100).
+                   Only used if fetch_all is False.
             start_key: Pagination cursor from previous response.
+                      Only used if fetch_all is False.
+            fetch_all: If True, fetches all results across all pages.
+                      If False, returns paginated results.
             **kwargs: Additional query parameters.
 
         Returns:
-            Tuple of (list of ChartSection instances, last_key for pagination).
+            If fetch_all is True: List of all ChartSection instances.
+            If fetch_all is False: Tuple of (list of ChartSection instances,
+                                          last_key for pagination).
 
         Raises:
             ApiError: If the API returns an error.
             AccQsureException: If there's an error making the request.
         """
-        resp = await self.accqsure._query(
-            f"/chart/{self.chart_id}/section",
-            "GET",
-            {"limit": limit, "start_key": start_key, **kwargs},
-        )
-        chart_sections = [
-            ChartSection.from_api(self.accqsure, self.chart_id, chart_section)
-            for chart_section in resp.get("results")
-        ]
-        return chart_sections, resp.get("last_key")
+        if fetch_all:
+            resp = await self.accqsure._query_all(
+                f"/chart/{self.chart_id}/section",
+                "GET",
+                {**kwargs},
+            )
+            chart_sections = [
+                ChartSection.from_api(self.accqsure, self.chart_id, chart_section)
+                for chart_section in resp
+            ]
+            return chart_sections
+        else:
+            resp = await self.accqsure._query(
+                f"/chart/{self.chart_id}/section",
+                "GET",
+                {"limit": limit, "start_key": start_key, **kwargs},
+            )
+            chart_sections = [
+                ChartSection.from_api(self.accqsure, self.chart_id, chart_section)
+                for chart_section in resp.get("results")
+            ]
+            return chart_sections, resp.get("last_key")
 
     async def create(
         self,
