@@ -1,7 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, fields
 import logging
-from typing import Optional, Any, TYPE_CHECKING
+from typing import Optional, Any, TYPE_CHECKING, List, Tuple
+
+from accqsure.enums import CHART_SECTION_STYLE
 
 if TYPE_CHECKING:
     from accqsure import AccQsure
@@ -11,19 +13,66 @@ from .elements import ChartElements
 
 
 class ChartSections(object):
-    def __init__(self, accqsure, chart_id):
+    """Manager for chart section resources.
+
+    Provides methods to create, retrieve, list, and delete chart sections.
+    Sections organize chart content hierarchically. Maps to the
+    /v1/chart/{chart_id}/section API endpoints.
+    """
+
+    def __init__(self, accqsure: "AccQsure", chart_id: str) -> None:
+        """Initialize the ChartSections manager.
+
+        Args:
+            accqsure: The AccQsure client instance.
+            chart_id: The chart ID this manager is associated with.
+        """
         self.accqsure = accqsure
         self.chart_id = chart_id
 
-    async def get(self, id_, **kwargs):
+    async def get(self, id_: str, **kwargs: Any) -> Optional["ChartSection"]:
+        """Get a chart section by ID.
 
+        Retrieves a single chart section by its entity ID.
+
+        Args:
+            id_: Chart section entity ID (24-character string).
+            **kwargs: Additional query parameters.
+
+        Returns:
+            ChartSection instance if found, None otherwise.
+
+        Raises:
+            ApiError: If the API returns an error.
+            AccQsureException: If there's an error making the request.
+        """
         resp = await self.accqsure._query(
             f"/chart/{self.chart_id}/section/{id_}", "GET", kwargs
         )
         return ChartSection.from_api(self.accqsure, self.chart_id, resp)
 
-    async def list(self, limit=50, start_key=None, **kwargs):
+    async def list(
+        self,
+        limit: int = 50,
+        start_key: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Tuple[List["ChartSection"], Optional[str]]:
+        """List chart sections.
 
+        Retrieves a paginated list of sections for this chart.
+
+        Args:
+            limit: Number of results to return (default: 50, max: 100).
+            start_key: Pagination cursor from previous response.
+            **kwargs: Additional query parameters.
+
+        Returns:
+            Tuple of (list of ChartSection instances, last_key for pagination).
+
+        Raises:
+            ApiError: If the API returns an error.
+            AccQsureException: If there's an error making the request.
+        """
         resp = await self.accqsure._query(
             f"/chart/{self.chart_id}/section",
             "GET",
@@ -37,16 +86,38 @@ class ChartSections(object):
 
     async def create(
         self,
-        heading,
-        style,
-        order,
-        number=None,
-        **kwargs,
-    ):
+        heading: str,
+        style: CHART_SECTION_STYLE,
+        order: int,
+        number: Optional[str] = None,
+        **kwargs: Any,
+    ) -> "ChartSection":
+        """Create a new chart section.
 
+        Creates a new section in this chart with the specified heading,
+        style, and order.
+
+        Args:
+            heading: Section heading text.
+            style: Section style identifier (CHART_SECTION_STYLE enum).
+            order: Display order of the section (integer).
+            number: Optional section number.
+            **kwargs: Additional section properties.
+
+        Returns:
+            Created ChartSection instance.
+
+        Raises:
+            ApiError: If the API returns an error (e.g., validation error).
+            AccQsureException: If there's an error making the request.
+        """
         data = dict(
             heading=heading,
-            style=style,
+            style=(
+                style.value
+                if isinstance(style, CHART_SECTION_STYLE)
+                else style
+            ),
             order=order,
             number=number,
             **kwargs,
@@ -66,8 +137,19 @@ class ChartSections(object):
 
         return chart_section
 
-    async def remove(self, id_, **kwargs):
+    async def remove(self, id_: str, **kwargs: Any) -> None:
+        """Delete a chart section.
 
+        Permanently deletes a chart section by its entity ID.
+
+        Args:
+            id_: Chart section entity ID (24-character string).
+            **kwargs: Additional query parameters.
+
+        Raises:
+            ApiError: If the API returns an error (e.g., section not found).
+            AccQsureException: If there's an error making the request.
+        """
         await self.accqsure._query(
             f"/chart/{self.chart_id}/section/{id_}", "DELETE", {**kwargs}
         )
@@ -75,12 +157,29 @@ class ChartSections(object):
 
 @dataclass
 class ChartSection:
+    """Represents a section within a chart.
+
+    Sections organize chart content hierarchically. Each section has
+    a heading, style, order, and can contain elements.
+
+    Attributes:
+        chart_id: The chart ID this section belongs to.
+        id: Entity ID of the section.
+        created_at: Creation timestamp.
+        updated_at: Last update timestamp.
+        heading: Section heading text.
+        style: Section style (should be one of CHART_SECTION_STYLE enum values:
+               'title', 'h1', 'h2', 'h3', 'h4', 'h5', or 'h6').
+        order: Display order of the section.
+        number: Optional section number.
+    """
+
     chart_id: str
     id: str
     created_at: str
     updated_at: str
     heading: str
-    style: str
+    style: str  # Should be one of CHART_SECTION_STYLE enum values
     order: int
     number: Optional[str] = field(default=None)
 
@@ -91,7 +190,17 @@ class ChartSection:
     @classmethod
     def from_api(
         cls, accqsure: "AccQsure", chart_id: str, data: dict[str, Any]
-    ) -> "ChartSection":
+    ) -> Optional["ChartSection"]:
+        """Create a ChartSection instance from API response data.
+
+        Args:
+            accqsure: The AccQsure client instance.
+            chart_id: The chart ID this section belongs to.
+            data: Dictionary containing chart section data from the API.
+
+        Returns:
+            ChartSection instance if data is provided, None otherwise.
+        """
         if not data:
             return None
         entity = cls(
@@ -112,14 +221,27 @@ class ChartSection:
 
     @property
     def accqsure(self) -> "AccQsure":
+        """Get the AccQsure client instance."""
         return self._accqsure
 
     @accqsure.setter
-    def accqsure(self, value: "AccQsure"):
+    def accqsure(self, value: "AccQsure") -> None:
+        """Set the AccQsure client instance."""
         self._accqsure = value
 
-    async def refresh(self):
+    async def refresh(self) -> "ChartSection":
+        """Refresh the chart section data from the API.
 
+        Fetches the latest chart section data from the API and updates the
+        instance fields.
+
+        Returns:
+            Self for method chaining.
+
+        Raises:
+            ApiError: If the API returns an error.
+            AccQsureException: If there's an error making the request.
+        """
         resp = await self.accqsure._query(
             f"/chart/{self.chart_id}/section/{self.id}",
             "GET",

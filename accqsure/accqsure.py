@@ -8,6 +8,7 @@ import asyncio
 import io
 from pathlib import Path
 from importlib.metadata import version
+from typing import Optional, Dict, Any, Union, List
 
 from accqsure.auth import Auth
 from accqsure.text import Text
@@ -32,7 +33,35 @@ DEFAULT_CREDENTIAL_FILE_NAME = "credentials.json"
 
 
 class AccQsure(object):
-    def __init__(self, **kwargs):
+    """Main client class for the AccQsure Python SDK.
+
+    This is the primary entry point for interacting with the AccQsure API.
+    It provides access to all resource managers (documents, inspections, etc.)
+    and handles authentication and HTTP communication.
+
+    Example:
+        ```python
+        from accqsure import AccQsure
+
+        client = AccQsure()
+        documents = await client.documents.list(document_type_id="...")
+        ```
+    """
+
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize the AccQsure client.
+
+        Args:
+            **kwargs: Optional keyword arguments:
+                - config_dir: Directory path for storing configuration and cached tokens.
+                             Defaults to ~/.accqsure or ACCQSURE_CONFIG_DIR environment variable.
+                - credentials_file: Path to the credentials JSON file.
+                                   Defaults to {config_dir}/credentials.json or
+                                   ACCQSURE_CREDENTIALS_FILE environment variable.
+                - key: Optional dictionary containing authentication credentials.
+                       If not provided, credentials will be loaded from credentials_file.
+        """
+
         self._version = version("accqsure")
         config_dir = (
             Path(kwargs.get("config_dir")).expanduser().resolve()
@@ -53,6 +82,7 @@ class AccQsure(object):
             .expanduser()
             .resolve()
         )
+
         self.auth = Auth(
             config_dir=config_dir,
             credentials_file=credentials_file,
@@ -69,9 +99,46 @@ class AccQsure(object):
 
     @property
     def __version__(self) -> str:
+        """Get the SDK version string.
+
+        Returns:
+            The version string of the installed SDK package.
+        """
         return self._version
 
-    async def _query(self, path, method, params=None, data=None, headers=None):
+    async def _query(
+        self,
+        path: str,
+        method: str,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[
+            Union[Dict[str, Any], List[Any], str, bytes, io.IOBase]
+        ] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Union[Dict[str, Any], str, bytes]:
+        """Make an authenticated HTTP request to the AccQsure API.
+
+        This is an internal method used by all resource managers to make
+        API calls. It handles authentication, request serialization, and
+        response parsing.
+
+        Args:
+            path: API endpoint path (e.g., "/document/{id}").
+            method: HTTP method (GET, POST, PUT, DELETE, etc.).
+            params: Optional query parameters as a dictionary.
+            data: Optional request body. Can be a dict, list, string, bytes,
+                  or file-like object. Will be serialized to JSON if dict/list.
+            headers: Optional additional HTTP headers.
+
+        Returns:
+            Response data. Returns a dict for JSON responses, str for text
+            responses, or bytes for binary responses.
+
+        Raises:
+            AccQsureException: If authentication fails or there's an error
+                getting the access token.
+            ApiError: If the API returns a 4xx or 5xx status code.
+        """
         try:
             token = await self.auth.get_token()
         except AccQsureException as e:
@@ -168,8 +235,35 @@ class AccQsure(object):
                     return await resp.read()
 
     async def _query_stream(
-        self, path, method, params=None, data=None, headers=None
-    ):
+        self,
+        path: str,
+        method: str,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> str:
+        """Make an authenticated streaming HTTP request to the AccQsure API.
+
+        This method is used for streaming responses, such as text generation
+        endpoints that return Server-Sent Events (SSE). It processes the
+        stream line by line and accumulates the response content.
+
+        Args:
+            path: API endpoint path (e.g., "/text/generate").
+            method: HTTP method (typically POST for streaming endpoints).
+            params: Optional query parameters as a dictionary.
+            data: Optional request body as a dictionary (will be JSON serialized).
+            headers: Optional additional HTTP headers.
+
+        Returns:
+            Accumulated response content as a string. For text generation,
+            this is the complete generated text.
+
+        Raises:
+            AccQsureException: If authentication fails or there's an error
+                getting the access token.
+            ApiError: If the API returns a 4xx or 5xx status code.
+        """
         try:
             token = await self.auth.get_token()
         except AccQsureException as e:
@@ -286,8 +380,34 @@ class AccQsure(object):
                     raise e
 
     async def _query_all(
-        self, path, method, params=None, data=None, headers=None
-    ):
+        self,
+        path: str,
+        method: str,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Fetch all results from a paginated API endpoint.
+
+        This method automatically handles pagination by following the
+        'last_key' cursor in API responses. It makes multiple requests
+        until all results are retrieved.
+
+        Args:
+            path: API endpoint path (e.g., "/document").
+            method: HTTP method (typically GET for list endpoints).
+            params: Optional query parameters. A default limit of 100
+                   will be set if not provided.
+            data: Optional request body.
+            headers: Optional additional HTTP headers.
+
+        Returns:
+            List of all result dictionaries from all pages.
+
+        Raises:
+            AccQsureException: If authentication fails.
+            ApiError: If the API returns an error.
+        """
         all_results = []
         params = params or {}  # Ensure params is a dict
         params["limit"] = params.get(
@@ -322,7 +442,29 @@ class AccQsure(object):
 
         return all_results
 
-    async def _poll_task(self, task_id, timeout=300):
+    async def _poll_task(
+        self, task_id: str, timeout: int = 300
+    ) -> Optional[Dict[str, Any]]:
+        """Poll a task until it completes, fails, or times out.
+
+        This method polls the task status endpoint at regular intervals
+        until the task reaches a terminal state (finished, failed, or canceled).
+        The polling interval is automatically calculated based on the timeout.
+
+        Args:
+            task_id: The task ID to poll (24-character string).
+            timeout: Maximum time to wait in seconds. Defaults to 300 (5 minutes).
+                    Must be less than 86400 (24 hours).
+
+        Returns:
+            Task result dictionary if the task finished successfully, None otherwise.
+
+        Raises:
+            SpecificationError: If timeout exceeds the maximum allowed value.
+            TaskError: If the task fails or is canceled.
+            AccQsureException: If the task times out before completion.
+            ApiError: If the API returns an error when polling.
+        """
         MAX_TIMEOUT = 24 * 60 * 60
         if timeout > MAX_TIMEOUT:
             raise SpecificationError(

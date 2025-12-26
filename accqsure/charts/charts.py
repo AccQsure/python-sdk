@@ -1,10 +1,11 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, fields
-from typing import Optional, Any, TYPE_CHECKING
+from typing import Optional, Any, TYPE_CHECKING, List, Tuple, Union, Dict
 import logging
 
 from accqsure.exceptions import SpecificationError
 from accqsure.documents import Document
+from accqsure.enums import MIME_TYPE
 from .sections import ChartSections
 from .waypoints import ChartWaypoints
 
@@ -14,22 +15,73 @@ if TYPE_CHECKING:
 
 
 class Charts:
-    def __init__(self, accqsure):
+    """Manager for chart resources.
+
+    Provides methods to create, retrieve, list, and delete charts.
+    Charts define structured document templates with sections and waypoints.
+    """
+
+    def __init__(self, accqsure: "AccQsure") -> None:
+        """Initialize the Charts manager.
+
+        Args:
+            accqsure: The AccQsure client instance.
+        """
         self.accqsure = accqsure
 
-    async def get(self, id_, **kwargs):
+    async def get(self, id_: str, **kwargs: Any) -> Optional["Chart"]:
+        """Get a chart by ID.
 
+        Retrieves a single chart by its entity ID.
+
+        Args:
+            id_: Chart entity ID (24-character string).
+            **kwargs: Additional query parameters.
+
+        Returns:
+            Chart instance if found, None otherwise.
+
+        Raises:
+            ApiError: If the API returns an error.
+            AccQsureException: If there's an error making the request.
+        """
         resp = await self.accqsure._query(f"/chart/{id_}", "GET", kwargs)
         return Chart.from_api(self.accqsure, resp)
 
     async def list(
         self,
-        document_type_id,
-        limit=50,
-        start_key=None,
-        fetch_all=False,
-        **kwargs,
-    ):
+        document_type_id: str,
+        limit: int = 50,
+        start_key: Optional[str] = None,
+        fetch_all: bool = False,
+        **kwargs: Any,
+    ) -> Union[
+        Tuple[List["Chart"], Optional[str]],
+        Tuple[List["Chart"], Optional[str]],
+    ]:
+        """List charts filtered by document type.
+
+        Retrieves a list of charts for a specific document type.
+        Can return all results or paginated results.
+
+        Args:
+            document_type_id: Document type ID to filter by.
+            limit: Number of results to return per page (default: 50, max: 100).
+                   Only used if fetch_all is False.
+            start_key: Pagination cursor from previous response.
+                      Only used if fetch_all is False.
+            fetch_all: If True, fetches all results across all pages.
+                      If False, returns paginated results.
+            **kwargs: Additional query parameters.
+
+        Returns:
+            Tuple of (list of Chart instances, last_key for pagination).
+            Note: fetch_all currently returns the same format but with all results.
+
+        Raises:
+            ApiError: If the API returns an error.
+            AccQsureException: If there's an error making the request.
+        """
         if fetch_all:
             resp = await self.accqsure._query_all(
                 "/chart",
@@ -63,12 +115,29 @@ class Charts:
 
     async def create(
         self,
-        name,
-        document_type_id,
-        reference_document_id,
-        **kwargs,
-    ):
+        name: str,
+        document_type_id: str,
+        reference_document_id: str,
+        **kwargs: Any,
+    ) -> "Chart":
+        """Create a new chart.
 
+        Creates a new chart with the specified document type, name, and
+        reference document. Charts define structured document templates.
+
+        Args:
+            name: Name of the chart.
+            document_type_id: Document type ID for the chart.
+            reference_document_id: Reference document ID to use as a template.
+            **kwargs: Additional chart properties.
+
+        Returns:
+            Created Chart instance.
+
+        Raises:
+            ApiError: If the API returns an error (e.g., validation error).
+            AccQsureException: If there's an error making the request.
+        """
         data = dict(
             name=name,
             document_type_id=document_type_id,
@@ -84,13 +153,31 @@ class Charts:
 
         return chart
 
-    async def remove(self, id_, **kwargs):
+    async def remove(self, id_: str, **kwargs: Any) -> None:
+        """Delete a chart.
 
+        Permanently deletes a chart by its entity ID.
+
+        Args:
+            id_: Chart entity ID (24-character string).
+            **kwargs: Additional query parameters.
+
+        Raises:
+            ApiError: If the API returns an error (e.g., chart not found).
+            AccQsureException: If there's an error making the request.
+        """
         await self.accqsure._query(f"/chart/{id_}", "DELETE", {**kwargs})
 
 
 @dataclass
 class Chart:
+    """Represents a chart in the AccQsure system.
+
+    Charts define structured document templates with sections and waypoints.
+    They can have a reference document that serves as a template or example.
+    Charts are used to generate structured documents.
+    """
+
     id: str
     name: str
     document_type_id: str
@@ -109,7 +196,18 @@ class Chart:
     )
 
     @classmethod
-    def from_api(cls, accqsure: "AccQsure", data: dict[str, Any]) -> "Chart":
+    def from_api(
+        cls, accqsure: "AccQsure", data: dict[str, Any]
+    ) -> Optional["Chart"]:
+        """Create a Chart instance from API response data.
+
+        Args:
+            accqsure: The AccQsure client instance.
+            data: Dictionary containing chart data from the API.
+
+        Returns:
+            Chart instance if data is provided, None otherwise.
+        """
         if not data:
             return None
         entity = cls(
@@ -132,21 +230,44 @@ class Chart:
 
     @property
     def accqsure(self) -> "AccQsure":
+        """Get the AccQsure client instance."""
         return self._accqsure
 
     @accqsure.setter
-    def accqsure(self, value: "AccQsure"):
+    def accqsure(self, value: "AccQsure") -> None:
+        """Set the AccQsure client instance."""
         self._accqsure = value
 
-    async def remove(self):
+    async def remove(self) -> None:
+        """Delete this chart.
 
+        Permanently deletes the chart from the system.
+
+        Raises:
+            ApiError: If the API returns an error.
+            AccQsureException: If there's an error making the request.
+        """
         await self.accqsure._query(
             f"/chart/{self.id}",
             "DELETE",
         )
 
-    async def rename(self, name):
+    async def rename(self, name: str) -> "Chart":
+        """Rename the chart.
 
+        Updates the chart's name and refreshes the instance with the
+        latest data from the API.
+
+        Args:
+            name: New name for the chart.
+
+        Returns:
+            Self for method chaining.
+
+        Raises:
+            ApiError: If the API returns an error.
+            AccQsureException: If there's an error making the request.
+        """
         resp = await self.accqsure._query(
             f"/chart/{self.id}",
             "PUT",
@@ -156,8 +277,19 @@ class Chart:
         self.__init__(self.accqsure, **resp)
         return self
 
-    async def refresh(self):
+    async def refresh(self) -> "Chart":
+        """Refresh the chart data from the API.
 
+        Fetches the latest chart data from the API and updates the
+        instance fields.
+
+        Returns:
+            Self for method chaining.
+
+        Raises:
+            ApiError: If the API returns an error.
+            AccQsureException: If there's an error making the request.
+        """
         resp = await self.accqsure._query(
             f"/chart/{self.id}",
             "GET",
@@ -171,16 +303,48 @@ class Chart:
                 setattr(self, f.name, resp.get(f.name))
         return self
 
-    async def _set_asset(self, path, file_name, mime_type, contents):
+    async def _set_asset(
+        self, path: str, file_name: str, mime_type: MIME_TYPE, contents: Any
+    ) -> Any:
+        """Set an asset file for the chart (internal method).
+
+        Args:
+            path: Asset path within the chart.
+            file_name: Name of the file.
+            mime_type: MIME type of the content (MIME_TYPE enum).
+            contents: File contents (bytes, string, or file-like object).
+
+        Returns:
+            API response data.
+
+        Raises:
+            ApiError: If the API returns an error.
+        """
+        mime_type_str = (
+            mime_type.value if isinstance(mime_type, MIME_TYPE) else mime_type
+        )
         return await self.accqsure._query(
             f"/chart/{self.id}/asset/{path}",
             "PUT",
             params={"file_name": file_name},
             data=contents,
-            headers={"Content-Type": mime_type},
+            headers={"Content-Type": mime_type_str},
         )
 
-    async def get_reference_contents(self):
+    async def get_reference_contents(self) -> Dict[str, Any]:
+        """Get the reference document content manifest.
+
+        Retrieves the manifest.json file that describes the reference
+        document's content assets.
+
+        Returns:
+            Dictionary containing the content manifest.
+
+        Raises:
+            SpecificationError: If reference_document or content_id is not set.
+            ApiError: If the API returns an error.
+            AccQsureException: If there's an error making the request.
+        """
         if not self.reference_document:
             raise SpecificationError(
                 "reference_document",
@@ -198,7 +362,25 @@ class Chart:
         )
         return resp
 
-    async def get_reference_content_item(self, name):
+    async def get_reference_content_item(
+        self, name: str
+    ) -> Union[bytes, str, Dict[str, Any]]:
+        """Get a specific content item from the reference document.
+
+        Retrieves a named content item (file) from the reference document's
+        assets.
+
+        Args:
+            name: Name of the content item to retrieve.
+
+        Returns:
+            Content item data (bytes, string, or dict depending on content type).
+
+        Raises:
+            SpecificationError: If reference_document or content_id is not set.
+            ApiError: If the API returns an error.
+            AccQsureException: If there's an error making the request.
+        """
         if not self.reference_document:
             raise SpecificationError(
                 "reference_document",

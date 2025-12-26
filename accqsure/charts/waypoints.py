@@ -1,26 +1,72 @@
 from __future__ import annotations
 from dataclasses import dataclass, fields
 import logging
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, List, Tuple, Optional
 
 if TYPE_CHECKING:
     from accqsure import AccQsure
 
 
 class ChartWaypoints(object):
-    def __init__(self, accqsure, chart_id):
+    """Manager for chart waypoint resources.
+
+    Provides methods to create, retrieve, list, and delete chart waypoints.
+    Waypoints are reference points used in chart elements.
+    """
+
+    def __init__(self, accqsure: "AccQsure", chart_id: str) -> None:
+        """Initialize the ChartWaypoints manager.
+
+        Args:
+            accqsure: The AccQsure client instance.
+            chart_id: The chart ID this manager is associated with.
+        """
         self.accqsure = accqsure
         self.chart_id = chart_id
 
-    async def get(self, id_, **kwargs):
+    async def get(self, id_: str, **kwargs: Any) -> Optional["ChartWaypoint"]:
+        """Get a chart waypoint by ID.
 
+        Retrieves a single chart waypoint by its entity ID.
+
+        Args:
+            id_: Chart waypoint entity ID (24-character string).
+            **kwargs: Additional query parameters.
+
+        Returns:
+            ChartWaypoint instance if found, None otherwise.
+
+        Raises:
+            ApiError: If the API returns an error.
+            AccQsureException: If there's an error making the request.
+        """
         resp = await self.accqsure._query(
             f"/chart/{self.chart_id}/waypoint/{id_}", "GET", kwargs
         )
         return ChartWaypoint.from_api(self.accqsure, self.chart_id, resp)
 
-    async def list(self, limit=50, start_key=None, **kwargs):
+    async def list(
+        self,
+        limit: int = 50,
+        start_key: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Tuple[List["ChartWaypoint"], Optional[str]]:
+        """List chart waypoints.
 
+        Retrieves a paginated list of waypoints for this chart.
+
+        Args:
+            limit: Number of results to return (default: 50, max: 100).
+            start_key: Pagination cursor from previous response.
+            **kwargs: Additional query parameters.
+
+        Returns:
+            Tuple of (list of ChartWaypoint instances, last_key for pagination).
+
+        Raises:
+            ApiError: If the API returns an error.
+            AccQsureException: If there's an error making the request.
+        """
         resp = await self.accqsure._query(
             f"/chart/{self.chart_id}/waypoint",
             "GET",
@@ -36,10 +82,24 @@ class ChartWaypoints(object):
 
     async def create(
         self,
-        name,
-        **kwargs,
-    ):
+        name: str,
+        **kwargs: Any,
+    ) -> "ChartWaypoint":
+        """Create a new chart waypoint.
 
+        Creates a new waypoint in this chart with the specified name.
+
+        Args:
+            name: Name of the waypoint.
+            **kwargs: Additional waypoint properties.
+
+        Returns:
+            Created ChartWaypoint instance.
+
+        Raises:
+            ApiError: If the API returns an error (e.g., validation error).
+            AccQsureException: If there's an error making the request.
+        """
         data = dict(
             name=name,
             **kwargs,
@@ -59,8 +119,19 @@ class ChartWaypoints(object):
 
         return chart_waypoint
 
-    async def remove(self, id_, **kwargs):
+    async def remove(self, id_: str, **kwargs: Any) -> None:
+        """Delete a chart waypoint.
 
+        Permanently deletes a chart waypoint by its entity ID.
+
+        Args:
+            id_: Chart waypoint entity ID (24-character string).
+            **kwargs: Additional query parameters.
+
+        Raises:
+            ApiError: If the API returns an error (e.g., waypoint not found).
+            AccQsureException: If there's an error making the request.
+        """
         await self.accqsure._query(
             f"/chart/{self.chart_id}/waypoint/{id_}", "DELETE", {**kwargs}
         )
@@ -68,6 +139,12 @@ class ChartWaypoints(object):
 
 @dataclass
 class ChartWaypoint:
+    """Represents a waypoint within a chart.
+
+    Waypoints are reference points used in chart elements to mark
+    specific locations or data points.
+    """
+
     chart_id: str
     id: str
     name: str
@@ -77,7 +154,17 @@ class ChartWaypoint:
     @classmethod
     def from_api(
         cls, accqsure: "AccQsure", chart_id: str, data: dict[str, Any]
-    ) -> "ChartWaypoint":
+    ) -> Optional["ChartWaypoint"]:
+        """Create a ChartWaypoint instance from API response data.
+
+        Args:
+            accqsure: The AccQsure client instance.
+            chart_id: The chart ID this waypoint belongs to.
+            data: Dictionary containing chart waypoint data from the API.
+
+        Returns:
+            ChartWaypoint instance if data is provided, None otherwise.
+        """
         if not data:
             return None
 
@@ -93,14 +180,27 @@ class ChartWaypoint:
 
     @property
     def accqsure(self) -> "AccQsure":
+        """Get the AccQsure client instance."""
         return self._accqsure
 
     @accqsure.setter
-    def accqsure(self, value: "AccQsure"):
+    def accqsure(self, value: "AccQsure") -> None:
+        """Set the AccQsure client instance."""
         self._accqsure = value
 
-    async def refresh(self):
+    async def refresh(self) -> "ChartWaypoint":
+        """Refresh the chart waypoint data from the API.
 
+        Fetches the latest chart waypoint data from the API and updates the
+        instance fields.
+
+        Returns:
+            Self for method chaining.
+
+        Raises:
+            ApiError: If the API returns an error.
+            AccQsureException: If there's an error making the request.
+        """
         resp = await self.accqsure._query(
             f"/chart/{self.chart_id}/waypoint/{self.id}",
             "GET",

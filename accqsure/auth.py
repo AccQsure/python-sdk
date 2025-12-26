@@ -8,28 +8,56 @@ import time
 import os
 import logging
 from urllib.parse import urlparse
+from typing import Optional, Dict, Any
 
 from accqsure.exceptions import AccQsureException
 
 
 class Token(object):
+    """Represents an OAuth2 access token for AccQsure API authentication.
+
+    This class stores the access token, organization ID, expiration time,
+    and API endpoint. Tokens are used to authenticate requests to the API.
+    """
+
     def __init__(
         self,
         organization_id: str,
         access_token: str,
         expires_at: int,
         api_endpoint: str,
-    ):
+    ) -> None:
+        """Initialize a Token instance.
+
+        Args:
+            organization_id: The organization ID associated with this token.
+            access_token: The OAuth2 access token string.
+            expires_at: Unix timestamp when the token expires.
+            api_endpoint: The base URL of the API endpoint.
+        """
         self.organization_id = organization_id
         self.access_token = access_token
         self.expires_at = expires_at
         self.api_endpoint = api_endpoint
 
     def to_json(self) -> str:
+        """Serialize the token to a JSON string.
+
+        Returns:
+            JSON string representation of the token.
+        """
         return json.dumps(self.__dict__, indent=2, ensure_ascii=False)
 
     @classmethod
-    def from_json(cls, json_str: str):
+    def from_json(cls, json_str: str) -> "Token":
+        """Deserialize a token from a JSON string.
+
+        Args:
+            json_str: JSON string containing token data.
+
+        Returns:
+            Token instance created from the JSON data.
+        """
         data = json.loads(json_str)
         return cls(**data)
 
@@ -37,11 +65,53 @@ class Token(object):
         return self.to_json()
 
 
-def base64_to_base64_url(data):
+def base64_to_base64_url(data: str) -> str:
+    """Convert base64 encoding to base64url encoding.
+
+    Base64url encoding is URL-safe and used in JWT tokens. It replaces
+    '+' with '-', '/' with '_', and removes padding '=' characters.
+
+    Args:
+        data: Base64-encoded string.
+
+    Returns:
+        Base64url-encoded string.
+    """
     return data.replace("=", "").replace("+", "-").replace("/", "_")
 
 
-async def sign_jwt(alg, kid, aud, iss, sub, exp, payload, private_key_pem):
+async def sign_jwt(
+    alg: str,
+    kid: str,
+    aud: str,
+    iss: str,
+    sub: str,
+    exp: int,
+    payload: Dict[str, Any],
+    private_key_pem: str,
+) -> str:
+    """Sign a JWT token using EdDSA algorithm.
+
+    Creates and signs a JWT token with the provided claims and private key.
+    The token is signed using EdDSA (Edwards-curve Digital Signature Algorithm).
+
+    Args:
+        alg: JWT algorithm identifier (must be "EdDSA").
+        kid: Key ID for the signing key.
+        aud: Audience claim (typically the auth endpoint URI).
+        iss: Issuer claim (typically the client ID).
+        sub: Subject claim (typically the client ID).
+        exp: Expiration time as Unix timestamp.
+        payload: Additional JWT payload claims.
+        private_key_pem: PEM-encoded private key for signing.
+
+    Returns:
+        Signed JWT token string.
+
+    Raises:
+        ValueError: If the algorithm is not "EdDSA".
+        AccQsureException: If there's an error signing the token.
+    """
     header = {
         "alg": alg,
         "kid": kid,
@@ -72,8 +142,34 @@ async def sign_jwt(alg, kid, aud, iss, sub, exp, payload, private_key_pem):
     return signed_token
 
 
-async def get_access_token(key):
+async def get_access_token(key: Dict[str, str]) -> Dict[str, Any]:
+    """Obtain an OAuth2 access token using client credentials grant.
 
+    Authenticates with the AccQsure OAuth2 endpoint using a JWT bearer token
+    assertion. The JWT is signed with the client's private key and includes
+    the organization ID in the payload.
+
+    This function implements the OAuth2 client credentials flow with JWT
+    bearer assertion as specified in RFC 7523.
+
+    Args:
+        key: Dictionary containing authentication credentials:
+            - key_id: Key ID for JWT signing
+            - auth_uri: OAuth2 authorization endpoint URI
+            - client_id: OAuth2 client identifier
+            - organization_id: Organization ID for the token
+            - private_key: PEM-encoded private key for JWT signing
+
+    Returns:
+        Dictionary containing:
+            - organization_id: Organization ID
+            - access_token: OAuth2 access token
+            - expires_at: Token expiration timestamp
+            - api_endpoint: Base API endpoint URL
+
+    Raises:
+        AccQsureException: If there's an error signing the JWT or fetching the token.
+    """
     try:
         token = await sign_jwt(
             "EdDSA",
@@ -102,8 +198,8 @@ async def get_access_token(key):
         ) as resp:
             try:
                 access_token = await resp.json()
-            except:
-                error = resp.text
+            except Exception:
+                error = await resp.text()
                 raise AccQsureException(
                     f"Error fetching access token {error}"
                 ) from error
@@ -117,7 +213,18 @@ async def get_access_token(key):
     )
 
 
-async def load_cached_token(token_file_path):
+async def load_cached_token(token_file_path: str) -> Optional[Token]:
+    """Load a cached token from the filesystem.
+
+    Attempts to load and deserialize a token from a JSON file. Returns None
+    if the file doesn't exist or contains invalid JSON.
+
+    Args:
+        token_file_path: Path to the token cache file.
+
+    Returns:
+        Token instance if successfully loaded, None otherwise.
+    """
     if not os.path.exists(token_file_path):
         return None
 
@@ -130,14 +237,34 @@ async def load_cached_token(token_file_path):
             return None
 
 
-async def save_token(token_file_path: str, token: Token):
+async def save_token(token_file_path: str, token: Token) -> None:
+    """Save a token to the filesystem cache.
+
+    Serializes the token to JSON and saves it to a file with restricted
+    permissions (600) for security.
+
+    Args:
+        token_file_path: Path where the token should be saved.
+        token: Token instance to save.
+    """
     os.makedirs(os.path.dirname(token_file_path), exist_ok=True)
     async with aiofiles.open(token_file_path, "w") as f:
         await f.write(token.to_json())
     os.chmod(token_file_path, 0o600)
 
 
-def is_token_valid(token: Token):
+def is_token_valid(token: Optional[Token]) -> bool:
+    """Check if a token is valid and not expired.
+
+    A token is considered valid if it exists and has not expired.
+    A 60-second buffer is used to account for clock skew and network delays.
+
+    Args:
+        token: Token instance to validate, or None.
+
+    Returns:
+        True if the token is valid and not expired, False otherwise.
+    """
     if not token:
         logging.debug("Token absent")
         return False
@@ -146,13 +273,40 @@ def is_token_valid(token: Token):
 
 
 class Auth(object):
-    def __init__(self, config_dir: str, credentials_file: str, **kwargs):
+    """Handles authentication and token management for the AccQsure SDK.
+
+    This class manages OAuth2 authentication using client credentials with
+    JWT bearer assertion. It handles token caching, validation, and refresh.
+    Tokens are cached to disk to avoid unnecessary authentication requests.
+    """
+
+    def __init__(
+        self, config_dir: str, credentials_file: str, **kwargs: Any
+    ) -> None:
+        """Initialize the Auth instance.
+
+        Args:
+            config_dir: Directory path for storing cached tokens.
+            credentials_file: Path to the credentials JSON file.
+            **kwargs: Additional keyword arguments:
+                - key: Optional dictionary containing authentication credentials.
+                       If not provided, credentials will be loaded from credentials_file.
+        """
         self.token_file_path = f"{config_dir}/token.json"
         self.credentials_file = credentials_file
-        self.token = None
-        self.key = kwargs.get("key", None)
+        self.token: Optional[Token] = None
+        self.key: Optional[Dict[str, str]] = kwargs.get("key", None)
 
-    async def get_new_token(self):
+    async def get_new_token(self) -> None:
+        """Obtain a new access token from the OAuth2 endpoint.
+
+        Loads credentials if not already loaded, then requests a new token
+        from the OAuth2 endpoint and caches it to disk.
+
+        Raises:
+            AccQsureException: If credentials file is not found or token
+                acquisition fails.
+        """
         if not self.key:
             try:
                 async with aiofiles.open(
@@ -171,7 +325,19 @@ class Auth(object):
         logging.debug("New Token %s", self.token)
         await save_token(self.token_file_path, self.token)
 
-    async def get_token(self):
+    async def get_token(self) -> Token:
+        """Get a valid access token, refreshing if necessary.
+
+        Returns the current token if it's valid. Otherwise, attempts to load
+        a cached token from disk. If no valid cached token exists, requests
+        a new token from the OAuth2 endpoint.
+
+        Returns:
+            Valid Token instance.
+
+        Raises:
+            AccQsureException: If token acquisition fails.
+        """
         if is_token_valid(self.token):
             logging.debug("Token is valid")
             return self.token
