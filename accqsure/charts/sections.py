@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, fields
 import logging
-from typing import Optional, Any, TYPE_CHECKING, List, Tuple
+from typing import Optional, Any, TYPE_CHECKING, List, Tuple, Union
 
 from accqsure.enums import CHART_SECTION_STYLE
 
@@ -57,7 +57,9 @@ class ChartSections(object):
         start_key: Optional[str] = None,
         fetch_all: bool = False,
         **kwargs: Any,
-    ) -> Union[List["ChartSection"], Tuple[List["ChartSection"], Optional[str]]]:
+    ) -> Union[
+        List["ChartSection"], Tuple[List["ChartSection"], Optional[str]]
+    ]:
         """List chart sections.
 
         Retrieves a list of sections for this chart.
@@ -88,7 +90,9 @@ class ChartSections(object):
                 {**kwargs},
             )
             chart_sections = [
-                ChartSection.from_api(self.accqsure, self.chart_id, chart_section)
+                ChartSection.from_api(
+                    self.accqsure, self.chart_id, chart_section
+                )
                 for chart_section in resp
             ]
             return chart_sections
@@ -99,7 +103,9 @@ class ChartSections(object):
                 {"limit": limit, "start_key": start_key, **kwargs},
             )
             chart_sections = [
-                ChartSection.from_api(self.accqsure, self.chart_id, chart_section)
+                ChartSection.from_api(
+                    self.accqsure, self.chart_id, chart_section
+                )
                 for chart_section in resp.get("results")
             ]
             return chart_sections, resp.get("last_key")

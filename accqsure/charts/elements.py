@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, fields
 import logging
-from typing import Optional, Any, List, Dict, TYPE_CHECKING, Tuple
+from typing import Optional, Any, List, Dict, TYPE_CHECKING, Tuple, Union
 from accqsure.charts.waypoints import ChartWaypoint
 
 from accqsure.enums import CHART_ELEMENT_TYPE
@@ -65,7 +65,9 @@ class ChartElements:
         start_key: Optional[str] = None,
         fetch_all: bool = False,
         **kwargs: Any,
-    ) -> Union[List["ChartElement"], Tuple[List["ChartElement"], Optional[str]]]:
+    ) -> Union[
+        List["ChartElement"], Tuple[List["ChartElement"], Optional[str]]
+    ]:
         """List chart elements.
 
         Retrieves a list of elements for this chart section.
@@ -97,7 +99,10 @@ class ChartElements:
             )
             chart_elements = [
                 ChartElement.from_api(
-                    self.accqsure, self.chart_id, self.section_id, chart_element
+                    self.accqsure,
+                    self.chart_id,
+                    self.section_id,
+                    chart_element,
                 )
                 for chart_element in resp
             ]
@@ -110,7 +115,10 @@ class ChartElements:
             )
             chart_elements = [
                 ChartElement.from_api(
-                    self.accqsure, self.chart_id, self.section_id, chart_element
+                    self.accqsure,
+                    self.chart_id,
+                    self.section_id,
+                    chart_element,
                 )
                 for chart_element in resp.get("results")
             ]

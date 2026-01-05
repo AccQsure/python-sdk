@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, fields
 import logging
-from typing import Any, TYPE_CHECKING, List, Tuple, Optional
+from typing import Any, TYPE_CHECKING, List, Tuple, Optional, Union
 
 if TYPE_CHECKING:
     from accqsure import AccQsure
@@ -51,7 +51,9 @@ class ChartWaypoints(object):
         start_key: Optional[str] = None,
         fetch_all: bool = False,
         **kwargs: Any,
-    ) -> Union[List["ChartWaypoint"], Tuple[List["ChartWaypoint"], Optional[str]]]:
+    ) -> Union[
+        List["ChartWaypoint"], Tuple[List["ChartWaypoint"], Optional[str]]
+    ]:
         """List chart waypoints.
 
         Retrieves a list of waypoints for this chart.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, fields
-from typing import Optional, Any, TYPE_CHECKING, List, Tuple
+from typing import Optional, Any, TYPE_CHECKING, List, Tuple, Union
 
 from .elements import PlotElements
 

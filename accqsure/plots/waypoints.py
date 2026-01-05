@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, fields
-from typing import Optional, Any, TYPE_CHECKING, List, Tuple
+from typing import Optional, Any, TYPE_CHECKING, List, Tuple, Union
 
 from .markers import PlotMarkers
 
@@ -52,7 +52,9 @@ class PlotWaypoints(object):
         start_key: Optional[str] = None,
         fetch_all: bool = False,
         **kwargs: Any,
-    ) -> Union[List["PlotWaypoint"], Tuple[List["PlotWaypoint"], Optional[str]]]:
+    ) -> Union[
+        List["PlotWaypoint"], Tuple[List["PlotWaypoint"], Optional[str]]
+    ]:
         """List plot waypoints.
 
         Retrieves a list of waypoints for this plot.
@@ -83,7 +85,9 @@ class PlotWaypoints(object):
                 {**kwargs},
             )
             plot_waypoints = [
-                PlotWaypoint.from_api(self.accqsure, self.plot_id, plot_waypoint)
+                PlotWaypoint.from_api(
+                    self.accqsure, self.plot_id, plot_waypoint
+                )
                 for plot_waypoint in resp
             ]
             return plot_waypoints
@@ -94,7 +98,9 @@ class PlotWaypoints(object):
                 {"limit": limit, "start_key": start_key, **kwargs},
             )
             plot_waypoints = [
-                PlotWaypoint.from_api(self.accqsure, self.plot_id, plot_waypoint)
+                PlotWaypoint.from_api(
+                    self.accqsure, self.plot_id, plot_waypoint
+                )
                 for plot_waypoint in resp.get("results")
             ]
             return plot_waypoints, resp.get("last_key")
