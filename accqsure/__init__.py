@@ -3,6 +3,7 @@ from .accqsure import AccQsure
 from .enums import (
     MIME_TYPE,
     INSPECTION_TYPE,
+    INSPECTION_CHECK_OVERRIDE_TYPE,
     CHART_SECTION_STYLE,
     CHART_ELEMENT_TYPE,
 )
@@ -33,6 +34,7 @@ __all__ = (
     "AccQsure",
     "MIME_TYPE",
     "INSPECTION_TYPE",
+    "INSPECTION_CHECK_OVERRIDE_TYPE",
     "CHART_SECTION_STYLE",
     "CHART_ELEMENT_TYPE",
     "DocumentContents",

@@ -37,6 +37,18 @@ class INSPECTION_TYPE(str, Enum):
     EFFECTIVE = "effective"
 
 
+class INSPECTION_CHECK_OVERRIDE_TYPE(str, Enum):
+    """User override classification for an inspection check (API feedback).
+
+    Sent with check feedback when the user disagrees with or qualifies
+    the automated compliance result.
+    """
+
+    NOT_APPLICABLE = "not_applicable"
+    DEVIATION = "deviation"
+    INCORRECT = "incorrect"
+
+
 class CHART_SECTION_STYLE(str, Enum):
     """Chart section style enumeration.
 

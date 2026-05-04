@@ -4,7 +4,11 @@ from typing import Optional, Any, TYPE_CHECKING, List, Tuple, Dict, Union
 import logging
 
 from accqsure.exceptions import SpecificationError
-from accqsure.enums import INSPECTION_TYPE, MIME_TYPE
+from accqsure.enums import (
+    INSPECTION_TYPE,
+    INSPECTION_CHECK_OVERRIDE_TYPE,
+    MIME_TYPE,
+)
 from accqsure.util import DocumentContents
 
 if TYPE_CHECKING:
@@ -125,6 +129,8 @@ class Inspections(object):
         manifests: List[str],
         draft: Optional[DocumentContents] = None,
         documents: Optional[List[str]] = None,
+        auto_run: Optional[bool] = None,
+        auto_finalize: Optional[bool] = None,
         **kwargs: Any,
     ) -> "Inspection":
         """Create a new inspection.
@@ -142,6 +148,12 @@ class Inspections(object):
                    (for preliminary inspections only, e.g., from
                    Utilities.prepare_document_contents()).
             documents: List of document IDs to inspect (for effective inspections only).
+            auto_run: When true, the inspection run starts automatically as soon as
+                document pre-processing completes, without a separate manual run step
+                for that phase.
+            auto_finalize: When true, the final inspection report is generated
+                automatically without pausing for review of checks or submission of
+                feedback.
             **kwargs: Additional inspection properties.
 
         Returns:
@@ -162,6 +174,8 @@ class Inspections(object):
             manifests=manifests,
             draft=draft,
             documents=documents,
+            auto_run=auto_run,
+            auto_finalize=auto_finalize,
             **kwargs,
         )
         payload = {k: v for k, v in data.items() if v is not None}
@@ -202,6 +216,8 @@ class Inspection:
         type: Inspection type (should be one of INSPECTION_TYPE enum values:
               'preliminary' or 'effective').
         status: Current status of the inspection.
+        auto_run: When true, run starts automatically after document pre-processing.
+        auto_finalize: When true, final report is generated without a review step.
     """
 
     id: str
@@ -213,6 +229,8 @@ class Inspection:
     document_type_id: Optional[str] = field(default=None)
     doc_content_id: Optional[str] = field(default=None)
     content_id: Optional[str] = field(default=None)
+    auto_run: Optional[bool] = field(default=None)
+    auto_finalize: Optional[bool] = field(default=None)
 
     @classmethod
     def from_api(
@@ -239,6 +257,8 @@ class Inspection:
             document_type_id=data.get("document_type_id"),
             doc_content_id=data.get("doc_content_id"),
             content_id=data.get("content_id"),
+            auto_run=data.get("auto_run"),
+            auto_finalize=data.get("auto_finalize"),
         )
         entity.accqsure = accqsure
         return entity
@@ -624,6 +644,16 @@ class InspectionCheck:
     Inspection checks are the results of validating documents against
     manifest checks. They contain compliance status, rationale, and
     suggestions for non-compliant items.
+
+    Attributes:
+        justification: User explanation when providing feedback on the check.
+        rating: User thumbs-up/down style rating from feedback (boolean).
+        override_type: API string for feedback override
+            (``not_applicable``, ``deviation``, ``incorrect``); use
+            :class:`~accqsure.enums.INSPECTION_CHECK_OVERRIDE_TYPE` when calling
+            :meth:`set_feedback`.
+        rated_by: Set by the API after successful user feedback (e.g. user id);
+            not sent in update payloads.
     """
 
     inspection_id: str
@@ -635,6 +665,10 @@ class InspectionCheck:
     compliant: Optional[bool] = field(default=None)
     rationale: Optional[str] = field(default=None)
     suggestion: Optional[str] = field(default=None)
+    justification: Optional[str] = field(default=None)
+    rating: Optional[bool] = field(default=None)
+    override_type: Optional[str] = field(default=None)
+    rated_by: Optional[str] = field(default=None)
     created_at: Optional[str] = field(default=None)
     updated_at: Optional[str] = field(default=None)
 
@@ -664,11 +698,30 @@ class InspectionCheck:
             compliant=data.get("compliant"),
             rationale=data.get("rationale"),
             suggestion=data.get("suggestion"),
+            justification=data.get("justification"),
+            rating=data.get("rating"),
+            override_type=data.get("override_type"),
+            rated_by=data.get("rated_by"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
         )
         entity.accqsure = accqsure
         return entity
+
+    def _apply_check_response(self, resp: dict[str, Any]) -> None:
+        exclude = ["id", "inspection_id", "accqsure"]
+        for f in fields(self.__class__):
+            if f.name in exclude or not f.init:
+                continue
+            field_name = f.name
+            if field_name == "section":
+                val = resp.get("check_section")
+            elif field_name == "name":
+                val = resp.get("check_name")
+            else:
+                val = resp.get(field_name)
+            if val is not None:
+                setattr(self, field_name, val)
 
     @property
     def accqsure(self) -> "AccQsure":
@@ -681,8 +734,9 @@ class InspectionCheck:
     async def update(self, **kwargs: Any) -> "InspectionCheck":
         """Update the inspection check.
 
-        Updates inspection check properties (e.g., compliant status, rationale,
-        suggestion) and refreshes the instance with the latest data from the API.
+        Updates inspection check properties and refreshes the instance from the
+        API response. For end-user feedback (rating, justification, override),
+        prefer :meth:`set_feedback`, which sends only the supported user fields.
 
         Args:
             **kwargs: Inspection check properties to update.
@@ -700,22 +754,60 @@ class InspectionCheck:
             None,
             dict(**kwargs),
         )
-        exclude = ["id", "inspection_id", "accqsure"]
+        self._apply_check_response(resp)
+        return self
 
-        for f in fields(self.__class__):
-            if (
-                f.name not in exclude
-                and f.init
-                and resp.get(f.name) is not None
-            ):  # Only update init args
-                # Handle field name mapping
-                field_name = f.name
-                if field_name == "section":
-                    setattr(self, field_name, resp.get("check_section"))
-                elif field_name == "name":
-                    setattr(self, field_name, resp.get("check_name"))
-                else:
-                    setattr(self, field_name, resp.get(field_name))
+    async def set_feedback(
+        self,
+        *,
+        rating: Optional[bool] = None,
+        justification: Optional[str] = None,
+        override_type: Optional[Union[str, INSPECTION_CHECK_OVERRIDE_TYPE]] = None,
+    ) -> "InspectionCheck":
+        """Submit user feedback for this check.
+
+        Sends a PUT with only ``rating``, ``justification``, and/or
+        ``override_type``. After a successful update, the API may set
+        ``rated_by`` on the returned check.
+
+        Args:
+            rating: User rating (boolean); omit to leave unchanged on the server
+                when combined with other fields.
+            justification: User justification text.
+            override_type: One of ``not_applicable``, ``deviation``, ``incorrect``,
+                or :class:`~accqsure.enums.INSPECTION_CHECK_OVERRIDE_TYPE`.
+
+        Returns:
+            Self for method chaining.
+
+        Raises:
+            SpecificationError: If none of the arguments are provided.
+            ApiError: If the API returns an error.
+            AccQsureException: If there's an error making the request.
+        """
+        if rating is None and justification is None and override_type is None:
+            raise SpecificationError(
+                "set_feedback",
+                "At least one of rating, justification, or override_type must be provided",
+            )
+        body: dict[str, Any] = {}
+        if rating is not None:
+            body["rating"] = rating
+        if justification is not None:
+            body["justification"] = justification
+        if override_type is not None:
+            body["override_type"] = (
+                override_type.value
+                if isinstance(override_type, INSPECTION_CHECK_OVERRIDE_TYPE)
+                else override_type
+            )
+        resp = await self.accqsure._query(
+            f"/inspection/{self.inspection_id}/check/{self.id}",
+            "PUT",
+            None,
+            body,
+        )
+        self._apply_check_response(resp)
         return self
 
     async def refresh(self) -> "InspectionCheck":
@@ -735,20 +827,5 @@ class InspectionCheck:
             f"/inspection/{self.inspection_id}/check/{self.id}",
             "GET",
         )
-        exclude = ["id", "inspection_id", "accqsure"]
-
-        for f in fields(self.__class__):
-            if (
-                f.name not in exclude
-                and f.init
-                and resp.get(f.name) is not None
-            ):  # Only update init args
-                # Handle field name mapping
-                field_name = f.name
-                if field_name == "section":
-                    setattr(self, field_name, resp.get("check_section"))
-                elif field_name == "name":
-                    setattr(self, field_name, resp.get("check_name"))
-                else:
-                    setattr(self, field_name, resp.get(field_name))
+        self._apply_check_response(resp)
         return self

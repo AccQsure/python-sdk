@@ -1,10 +1,14 @@
 """Tests for inspections module."""
+import io
+import json
+
 import pytest
+from aioresponses import CallbackResult
 
 from accqsure.inspections import Inspections, Inspection
-from accqsure.enums import INSPECTION_TYPE
+from accqsure.enums import INSPECTION_TYPE, INSPECTION_CHECK_OVERRIDE_TYPE, MIME_TYPE
+from accqsure.exceptions import SpecificationError
 from accqsure.util import DocumentContents
-from accqsure.enums import MIME_TYPE
 
 
 class InspectionsTests:
@@ -164,6 +168,54 @@ class InspectionsTests:
         assert inspection.type == 'effective'
 
     @pytest.mark.asyncio
+    async def test_create_includes_automation_flags(
+        self, mock_accqsure_client, aiohttp_mock, sample_document_type_id
+    ):
+        """POST body includes auto_run and auto_finalize when provided."""
+        post_bodies: list[dict] = []
+
+        async def capture_post(url, **kwargs):
+            raw = kwargs.get('data')
+            if isinstance(raw, io.BytesIO):
+                post_bodies.append(json.loads(raw.getvalue().decode()))
+            return CallbackResult(
+                status=200,
+                payload={
+                    'entity_id': '0123456789abcdef01234567',
+                    'name': 'Automated',
+                    'type': 'preliminary',
+                    'status': 'draft',
+                    'document_type_id': sample_document_type_id,
+                    'auto_run': True,
+                    'auto_finalize': False,
+                    'created_at': '2024-01-01T00:00:00Z',
+                    'updated_at': '2024-01-01T00:00:00Z',
+                },
+            )
+
+        aiohttp_mock.post(
+            'https://api-prod.accqsure.ai/v1/inspection',
+            callback=capture_post,
+        )
+        contents: DocumentContents = {
+            'title': 'Test',
+            'type': MIME_TYPE.PDF,
+            'base64_contents': 'dGVzdA==',
+        }
+        await mock_accqsure_client.inspections.create(
+            inspection_type=INSPECTION_TYPE.PRELIMINARY,
+            name='Automated',
+            document_type_id=sample_document_type_id,
+            manifests=['0123456789abcdef01234567'],
+            draft=contents,
+            auto_run=True,
+            auto_finalize=False,
+        )
+        assert len(post_bodies) == 1
+        assert post_bodies[0]['auto_run'] is True
+        assert post_bodies[0]['auto_finalize'] is False
+
+    @pytest.mark.asyncio
     async def test_remove(self, mock_accqsure_client, aiohttp_mock, sample_entity_id):
         """Test Inspections.remove method."""
         aiohttp_mock.delete(
@@ -184,6 +236,8 @@ class InspectionTests:
             'name': 'Test Inspection',
             'type': 'preliminary',
             'status': 'active',
+            'auto_run': True,
+            'auto_finalize': False,
             'created_at': '2024-01-01T00:00:00Z',
             'updated_at': '2024-01-01T00:00:00Z',
         }
@@ -194,6 +248,8 @@ class InspectionTests:
         assert inspection.name == 'Test Inspection'
         assert inspection.type == 'preliminary'
         assert inspection.status == 'active'
+        assert inspection.auto_run is True
+        assert inspection.auto_finalize is False
 
     def test_from_api_none(self, mock_accqsure_client):
         """Test Inspection.from_api with None data."""
@@ -698,6 +754,10 @@ class InspectionCheckTests:
             'status': 'compliant',
             'critical': True,
             'compliant': True,
+            'justification': 'Because',
+            'rating': False,
+            'override_type': 'incorrect',
+            'rated_by': '0123456789abcdef01234599',
             'created_at': '2024-01-01T00:00:00Z',
             'updated_at': '2024-01-01T00:00:00Z',
         }
@@ -708,6 +768,10 @@ class InspectionCheckTests:
         assert check.id == '0123456789abcdef01234568'
         assert check.name == 'Check 1'
         assert check.section == 'Section 1'
+        assert check.justification == 'Because'
+        assert check.rating is False
+        assert check.override_type == 'incorrect'
+        assert check.rated_by == '0123456789abcdef01234599'
 
     def test_from_api_none(self, mock_accqsure_client):
         """Test InspectionCheck.from_api with None data."""
@@ -806,4 +870,76 @@ class InspectionCheckTests:
         assert check.section == 'Section 2'
         assert check.status == 'non-compliant'
         assert check.compliant is False
+
+    @pytest.mark.asyncio
+    async def test_set_feedback_requires_field(self, mock_accqsure_client):
+        """set_feedback raises when no feedback arguments are given."""
+        from accqsure.inspections import InspectionCheck
+
+        check = InspectionCheck(
+            inspection_id='0123456789abcdef01234567',
+            id='0123456789abcdef01234568',
+            section='Section 1',
+            name='Check 1',
+            status='complete',
+        )
+        check.accqsure = mock_accqsure_client
+        with pytest.raises(SpecificationError):
+            await check.set_feedback()
+
+    @pytest.mark.asyncio
+    async def test_set_feedback(self, mock_accqsure_client, aiohttp_mock):
+        """set_feedback sends user-edit fields and merges API response."""
+        from accqsure.inspections import InspectionCheck
+
+        inspection_id = '0123456789abcdef01234567'
+        check = InspectionCheck(
+            inspection_id=inspection_id,
+            id='0123456789abcdef01234568',
+            section='Section 1',
+            name='Check 1',
+            status='complete',
+        )
+        check.accqsure = mock_accqsure_client
+        put_bodies: list[dict] = []
+
+        async def capture_put(url, **kwargs):
+            raw = kwargs.get('data')
+            if isinstance(raw, io.BytesIO):
+                put_bodies.append(json.loads(raw.getvalue().decode()))
+            return CallbackResult(
+                status=200,
+                payload={
+                    'entity_id': '0123456789abcdef01234568',
+                    'check_section': 'Section 1',
+                    'check_name': 'Check 1',
+                    'status': 'complete',
+                    'rating': True,
+                    'justification': 'ok',
+                    'override_type': 'deviation',
+                    'rated_by': '0123456789abcdef01234599',
+                    'created_at': '2024-01-01T00:00:00Z',
+                    'updated_at': '2024-01-02T00:00:00Z',
+                },
+            )
+
+        aiohttp_mock.put(
+            f'https://api-prod.accqsure.ai/v1/inspection/{inspection_id}/check/0123456789abcdef01234568',
+            callback=capture_put,
+        )
+
+        await check.set_feedback(
+            rating=True,
+            justification='ok',
+            override_type=INSPECTION_CHECK_OVERRIDE_TYPE.DEVIATION,
+        )
+        assert put_bodies[0] == {
+            'rating': True,
+            'justification': 'ok',
+            'override_type': 'deviation',
+        }
+        assert check.rating is True
+        assert check.justification == 'ok'
+        assert check.override_type == 'deviation'
+        assert check.rated_by == '0123456789abcdef01234599'
 
